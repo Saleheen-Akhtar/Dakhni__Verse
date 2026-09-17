@@ -1,0 +1,18 @@
+import { redirect } from 'next/navigation';
+import { requireAuth, getCurrentUserProfile } from '@/lib/auth/helpers';
+import { AppShell } from '@/components/layout/app-shell';
+
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  await requireAuth();
+  const userData = await getCurrentUserProfile();
+
+  if (!userData) {
+    redirect('/setup');
+  }
+
+  return <AppShell user={userData}>{children}</AppShell>;
+}

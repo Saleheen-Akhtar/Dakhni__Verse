@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* === Dakhni Verse Design Tokens === */
+
+  /* Primary brand colors */
+  --color-dv-red: #D71920;
+  --color-dv-red-hover: #B8151B;
+  --color-dv-red-light: #FEF2F2;
+  --color-dv-black: #111111;
+  --color-dv-white: #FFFFFF;
+  --color-dv-gray-light: #F4F4F4;
+  --color-dv-gray-border: #E5E5E5;
+  --color-dv-gray-text: #666666;
+
+  /* Semantic color tokens (shadcn/ui compatible) */
+  --color-background: #FFFFFF;
+  --color-foreground: #111111;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #111111;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #111111;
+  --color-primary: #D71920;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #F4F4F4;
+  --color-secondary-foreground: #111111;
+  --color-muted: #F4F4F4;
+  --color-muted-foreground: #666666;
+  --color-accent: #F4F4F4;
+  --color-accent-foreground: #111111;
+  --color-destructive: #DC2626;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #E5E5E5;
+  --color-input: #E5E5E5;
+  --color-ring: #D71920;
+  --color-chart-1: #D71920;
+  --color-chart-2: #111111;
+  --color-chart-3: #666666;
+  --color-chart-4: #999999;
+  --color-chart-5: #CCCCCC;
+
+  /* Sidebar tokens */
+  --color-sidebar: #111111;
+  --color-sidebar-foreground: #FFFFFF;
+  --color-sidebar-primary: #D71920;
+  --color-sidebar-primary-foreground: #FFFFFF;
+  --color-sidebar-accent: #222222;
+  --color-sidebar-accent-foreground: #FFFFFF;
+  --color-sidebar-border: #333333;
+  --color-sidebar-ring: #D71920;
+  --color-sidebar-muted: #333333;
+  --color-sidebar-muted-foreground: #999999;
+
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  /* Fonts */
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+}
+
+/* === Base styles === */
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground font-body antialiased;
+}
+
+/* === Typography === */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-display tracking-tight;
+}
+
+/* === Scrollbar styling === */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-dv-gray-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-dv-gray-text);
+}
+
+/* === Focus visible === */
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-ring;
+}
