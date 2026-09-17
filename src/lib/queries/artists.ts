@@ -299,14 +299,14 @@ export async function getArtistStats(artistId: string) {
   };
 }
 
-export async function submitArtistSelfService(data: any) {
+export async function submitArtistSelfService(data: any): Promise<{ success: boolean; action?: string; artist_id?: string; stage_name?: string; error?: string }> {
   const adminClient = getAdminSupabase();
   const supabase = adminClient || (await createClient());
 
-  const stageName = (data.stage_name || '').trim();
-  if (!stageName) {
-    throw new Error('Stage name is required');
-  }
+    const stageName = (data.stage_name || '').trim();
+    if (!stageName) {
+      return { success: false, error: 'Stage name is required' };
+    }
 
   const email = (data.email || '').trim() || null;
   const phone = (data.phone || '').trim() || null;
@@ -538,13 +538,14 @@ export async function submitArtistSelfService(data: any) {
       stage_name: stageName,
     };
   } catch (err: any) {
-    console.error('Error in submitArtistSelfService fallback:', err);
-    if (err?.code === '42501' || err?.message?.includes('row-level security')) {
-      throw new Error(
-        'Database permission error: Please run migration script (002_public_artist_submission.sql) in your Supabase SQL Editor to allow public artist submissions.'
-      );
-    }
-    throw err;
+    console.error('Error in submitArtistSelfService:', err);
+    const isRls = err?.code === '42501' || err?.message?.includes('row-level security');
+    return {
+      success: false,
+      error: isRls
+        ? 'Database permission error: Unauthenticated submissions are blocked by Supabase Row-Level Security (RLS). Please run the SQL migration (004_fix_public_intake_rls.sql) in your Supabase SQL Editor.'
+        : (err?.message || 'Failed to submit profile. Please try again.'),
+    };
   }
 }
 

@@ -221,8 +221,8 @@ export function PublicArtistForm() {
       if (result?.success) {
         setSubmissionResult({
           success: true,
-          action: result.action,
-          artist_id: result.artist_id,
+          action: (result.action as 'created' | 'updated') || 'created',
+          artist_id: result.artist_id || '',
           stage_name: result.stage_name || formData.stage_name,
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -234,7 +234,11 @@ export function PublicArtistForm() {
           variant: 'success',
         });
       } else {
-        throw new Error('Failed to save profile. Please try again.');
+        toast({
+          title: 'Submission Error',
+          description: result?.error || 'Failed to save profile. Please try again.',
+          variant: 'destructive',
+        });
       }
     } catch (err: any) {
       const msg = err?.message || 'Failed to submit profile. Please check your connection and try again.';
