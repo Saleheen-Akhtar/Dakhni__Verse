@@ -25,27 +25,6 @@ export async function signIn(formData: FormData) {
   redirect('/dashboard')
 }
 
-export async function signUp(formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-
-  if (!email || !password) {
-    return { error: 'Email and password are required' }
-  }
-
-  const supabase = await createClient()
-
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-  })
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  redirect('/dashboard')
-}
 
 export async function signOut() {
   const supabase = await createClient()

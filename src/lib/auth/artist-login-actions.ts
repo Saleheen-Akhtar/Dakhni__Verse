@@ -2,7 +2,7 @@
 
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { requireRole } from '@/lib/auth/helpers';
+import { requireRole, getCurrentUserProfile } from '@/lib/auth/helpers';
 import { revalidatePath } from 'next/cache';
 
 export interface LinkedArtistUser {
@@ -15,9 +15,19 @@ export interface LinkedArtistUser {
 }
 
 /**
- * Check if an artist already has a linked login account in public.users
+ * Check if an artist already has a linked login account in public.users.
+ * Only Managers or the artist themselves are permitted to read login mapping.
  */
 export async function getLinkedUserForArtist(artistId: string): Promise<LinkedArtistUser | null> {
+  const profile = await getCurrentUserProfile();
+  if (!profile) return null;
+
+  const isManager = profile.role === 'Manager';
+  const isSelf = profile.artist_id === artistId;
+  if (!isManager && !isSelf) {
+    return null;
+  }
+
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from('users')
@@ -58,8 +68,8 @@ export async function generateArtistLogin({
     throw new Error('Please enter a valid email address.');
   }
 
-  if (!trimmedPassword || trimmedPassword.length < 6) {
-    throw new Error('Password must be at least 6 characters.');
+  if (!trimmedPassword || trimmedPassword.length < 8) {
+    throw new Error('Password must be at least 8 characters.');
   }
 
   const managerClient = await createServerClient();
@@ -134,7 +144,7 @@ export async function generateArtistLogin({
 
         if (signInError) {
           throw new Error(
-            `Email "${trimmedEmail}" is already registered in Auth. If setting a new password, please use a distinct email address for this artist.`
+            'Unable to configure credentials with the provided email and password. Please verify the credentials or use a distinct email address.'
           );
         }
         userId = signInData.user?.id || null;
