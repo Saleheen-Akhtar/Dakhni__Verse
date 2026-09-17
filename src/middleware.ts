@@ -9,7 +9,6 @@ export async function middleware(request: NextRequest) {
   // Publicly accessible routes
   const isPublicRoute =
     pathname === '/login' ||
-    pathname === '/setup' ||
     pathname === '/join' ||
     pathname === '/artist-form' ||
     pathname.startsWith('/join/') ||

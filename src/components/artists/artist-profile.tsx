@@ -13,6 +13,8 @@ import { deleteArtist } from '@/lib/queries/artists';
 import { formatDate } from '@/lib/utils/format';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
+import { GenerateArtistLoginDialog } from '@/components/artists/generate-artist-login-dialog';
+import type { LinkedArtistUser } from '@/lib/auth/artist-login-actions';
 
 interface ArtistProfileProps {
   artist: any;
@@ -20,9 +22,19 @@ interface ArtistProfileProps {
   kpis: any;
   canEdit: boolean;
   canDelete: boolean;
+  isManager?: boolean;
+  linkedUser?: LinkedArtistUser | null;
 }
 
-export function ArtistProfile({ artist, stats, kpis, canEdit, canDelete }: ArtistProfileProps) {
+export function ArtistProfile({
+  artist,
+  stats,
+  kpis,
+  canEdit,
+  canDelete,
+  isManager,
+  linkedUser,
+}: ArtistProfileProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('Overview');
@@ -170,7 +182,10 @@ export function ArtistProfile({ artist, stats, kpis, canEdit, canDelete }: Artis
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isManager && (
+            <GenerateArtistLoginDialog artist={artist} initialLinkedUser={linkedUser} />
+          )}
           {canEdit && <Button variant="outline" onClick={() => router.push(`/artists/${artist.id}/edit`)}>Edit Profile</Button>}
           {canDelete && <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>Delete</Button>}
         </div>

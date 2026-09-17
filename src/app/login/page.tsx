@@ -98,11 +98,8 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-center border-t border-[#E5E5E5] pt-4">
-            <p className="text-sm text-[#666666]">
-              Need to set up a new account?{' '}
-              <Link href="/setup" className="font-medium text-[#D71920] hover:underline">
-                Create Account / Setup
-              </Link>
+            <p className="text-xs text-[#888888]">
+              Private collective portal. Artist and staff accounts are managed by Dakhni Verse.
             </p>
           </div>
         </div>

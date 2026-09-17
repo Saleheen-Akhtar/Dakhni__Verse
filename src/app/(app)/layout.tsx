@@ -11,7 +11,7 @@ export default async function AppLayout({
   const userData = await getCurrentUserProfile();
 
   if (!userData) {
-    redirect('/setup');
+    redirect('/login');
   }
 
   return <AppShell user={userData}>{children}</AppShell>;
