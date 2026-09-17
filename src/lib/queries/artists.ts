@@ -120,6 +120,16 @@ export const getArtistOptions = unstable_cache(
   async () => {
     return measureQuery('getArtistOptions', async () => {
       const supabase = getStatelessSupabase();
+      // Try SECURITY DEFINER RPC first (bypasses table RLS without exposing PII)
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('get_active_artist_options_rpc');
+        if (!rpcError && rpcData) {
+          return rpcData;
+        }
+      } catch {
+        // Fall back to direct query if RPC is not yet created
+      }
+
       const { data, error } = await supabase
         .from('artists')
         .select('id, stage_name')
@@ -127,7 +137,6 @@ export const getArtistOptions = unstable_cache(
         .order('stage_name', { ascending: true });
 
       if (error) {
-        console.error('Error fetching artist options:', error);
         return [];
       }
       return data || [];
@@ -413,7 +422,7 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
     // Sanitize client IP: must be valid IPv4/IPv6 pattern
     const clientIp = rawIp && /^[a-fA-F0-9.:]+$/.test(rawIp) ? rawIp : 'client';
 
-    const rateCheck = checkRateLimit(`submit_artist:${clientIp}`, 5, 10 * 60 * 1000);
+    const rateCheck = await checkRateLimit(`submit_artist:${clientIp}`, 5, 10 * 60 * 1000);
     if (!rateCheck.success) {
       return {
         success: false,

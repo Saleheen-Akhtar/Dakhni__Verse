@@ -1,4 +1,4 @@
-import { requireAuth, getCurrentUserProfile } from '@/lib/auth/helpers';
+import { getCurrentUserProfile } from '@/lib/auth/helpers';
 import { getArtistById } from '@/lib/queries/artists';
 import { notFound, redirect } from 'next/navigation';
 import { PageHeader } from '@/components/ui/page-header';
@@ -9,7 +9,6 @@ export default async function EditArtistPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAuth();
   const { id } = await params;
   const user = await getCurrentUserProfile();
 

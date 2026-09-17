@@ -1,4 +1,3 @@
-import { requireAuth } from '@/lib/auth/helpers';
 import { getArtistOptions } from '@/lib/queries/sessions';
 import { getProjects } from '@/lib/queries/projects';
 import { SessionForm } from '@/components/sessions/session-form';

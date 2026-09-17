@@ -1,4 +1,4 @@
-import { requireAuth, getCurrentUserProfile } from '@/lib/auth/helpers';
+import { getCurrentUserProfile } from '@/lib/auth/helpers';
 import { getProjects, getArtistOptions } from '@/lib/queries/projects';
 import { PageHeader } from '@/components/ui/page-header';
 import { ProjectList } from '@/components/projects/project-list';

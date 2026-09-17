@@ -1,9 +1,7 @@
-import { requireAuth } from '@/lib/auth/helpers';
 import { getArtistOptions } from '@/lib/queries/equipment';
 import { EquipmentForm } from '@/components/equipment/equipment-form';
 
 export default async function NewEquipmentPage() {
-  await requireAuth();
   const artists = await getArtistOptions();
 
   return (

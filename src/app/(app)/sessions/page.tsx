@@ -1,4 +1,3 @@
-import { requireAuth } from '@/lib/auth/helpers';
 import { getSessions, getArtistOptions } from '@/lib/queries/sessions';
 import { PageHeader } from '@/components/ui/page-header';
 import { SessionList } from '@/components/sessions/session-list';

@@ -1,4 +1,3 @@
-import { requireAuth } from '@/lib/auth/helpers';
 import { getReleases, getArtistOptions } from '@/lib/queries/releases';
 import { PageHeader } from '@/components/ui/page-header';
 import { ReleaseList } from '@/components/releases/release-list';

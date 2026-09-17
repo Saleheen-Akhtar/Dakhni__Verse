@@ -1,4 +1,3 @@
-import { requireAuth } from '@/lib/auth/helpers';
 import { getEquipment } from '@/lib/queries/equipment';
 import { PageHeader } from '@/components/ui/page-header';
 import { EquipmentList } from '@/components/equipment/equipment-list';
@@ -11,7 +10,6 @@ export default async function EquipmentPage({
 }: {
   searchParams?: Promise<{ owner_type?: string; search?: string; page?: string }>;
 }) {
-  await requireAuth();
   const params = await searchParams;
   const equipment = await getEquipment({
     owner_type: params?.owner_type,
