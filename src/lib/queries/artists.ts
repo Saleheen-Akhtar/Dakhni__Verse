@@ -35,6 +35,18 @@ export async function getArtists(filters?: { status?: string; role?: string; sea
     console.error('Error fetching artists:', error);
     return [];
   }
+
+  // If no explicit status filter is requested, exclude pending & rejected applicants from active roster
+  if (!filters?.status) {
+    return (data || []).filter(
+      (a) =>
+        a.status !== 'Pending' &&
+        a.status !== 'Rejected' &&
+        a.dakhni_verse_role !== 'Pending Applicant' &&
+        a.dakhni_verse_role !== 'Rejected Applicant'
+    );
+  }
+
   return data;
 }
 
@@ -456,14 +468,31 @@ export async function submitArtistSelfService(data: any) {
       }
     } else {
       action = 'created';
-      const { data: newArtist, error: createError } = await supabase
+      let newArtistData: any = {
+        ...artistData,
+        date_joined: new Date().toISOString().split('T')[0],
+        status: 'Pending',
+        dakhni_verse_role: 'Pending Applicant',
+      };
+
+      let { data: newArtist, error: createError } = await supabase
         .from('artists')
-        .insert([{
-          ...artistData,
-          date_joined: new Date().toISOString().split('T')[0],
-        }])
+        .insert([newArtistData])
         .select()
         .single();
+
+      // If enum in Supabase hasn't been altered to include 'Pending' yet, gracefully fallback to 'Inactive'
+      if (createError && createError.code === '22P02') {
+        newArtistData.status = 'Inactive';
+        newArtistData.dakhni_verse_role = 'Pending Applicant';
+        const res = await supabase
+          .from('artists')
+          .insert([newArtistData])
+          .select()
+          .single();
+        newArtist = res.data;
+        createError = res.error;
+      }
 
       if (createError) throw createError;
       artistId = newArtist.id;
@@ -485,10 +514,10 @@ export async function submitArtistSelfService(data: any) {
 
       try {
         await supabase.from('activity_logs').insert([{
-          action: 'New Artist Joined',
+          action: 'Artist Application Submitted',
           entity_type: 'Artist',
           entity_id: artistId,
-          description: `Artist "${stageName}" registered via self-service form`,
+          description: `New application submitted by "${stageName}" (Pending Manager Review)`,
         }]);
       } catch {
         // Non-blocking log insertion
@@ -496,6 +525,7 @@ export async function submitArtistSelfService(data: any) {
     }
 
     revalidatePath('/artists');
+    revalidatePath('/artists/review');
     revalidatePath('/dashboard');
     revalidatePath('/projects');
     revalidatePath('/sessions');
@@ -516,4 +546,146 @@ export async function submitArtistSelfService(data: any) {
     }
     throw err;
   }
+}
+
+// =============================================================================
+// Artist Application Review & Approval Workflow Functions
+// =============================================================================
+
+export async function getArtistApplications(filterStatus: 'Pending' | 'Rejected' | 'all' = 'Pending'): Promise<ArtistWithProfile[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('artists')
+    .select('*, music_profile:artist_music_profiles(*), social_links:artist_social_links(*)')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching artist applications:', error);
+    return [];
+  }
+
+  const all = (data || []) as ArtistWithProfile[];
+
+  if (filterStatus === 'Pending') {
+    return all.filter(
+      (a) => a.status === 'Pending' || a.dakhni_verse_role === 'Pending Applicant'
+    );
+  }
+
+  if (filterStatus === 'Rejected') {
+    return all.filter(
+      (a) => a.status === 'Rejected' || a.dakhni_verse_role === 'Rejected Applicant'
+    );
+  }
+
+  return all.filter(
+    (a) =>
+      a.status === 'Pending' ||
+      a.status === 'Rejected' ||
+      a.dakhni_verse_role === 'Pending Applicant' ||
+      a.dakhni_verse_role === 'Rejected Applicant'
+  );
+}
+
+export async function getPendingApplicationsCount(): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('artists')
+    .select('id, status, dakhni_verse_role');
+
+  if (error || !data) return 0;
+  return data.filter(
+    (a) => a.status === 'Pending' || a.dakhni_verse_role === 'Pending Applicant'
+  ).length;
+}
+
+export async function acceptArtistApplication(artistId: string) {
+  const supabase = await createClient();
+
+  const { data: artist, error: updateError } = await supabase
+    .from('artists')
+    .update({
+      status: 'Active',
+      dakhni_verse_role: 'Artist',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', artistId)
+    .select('id, stage_name')
+    .single();
+
+  if (updateError) {
+    console.error('Error accepting artist application:', updateError);
+    throw new Error('Failed to accept artist application: ' + updateError.message);
+  }
+
+  try {
+    await supabase.from('activity_logs').insert([{
+      action: 'Artist Accepted',
+      entity_type: 'Artist',
+      entity_id: artistId,
+      description: `Artist "${artist?.stage_name || 'Applicant'}" was approved and accepted into the collective`,
+    }]);
+  } catch {}
+
+  revalidatePath('/artists');
+  revalidatePath('/artists/review');
+  revalidatePath('/dashboard');
+  revalidatePath(`/artists/${artistId}`);
+
+  return { success: true, stage_name: artist?.stage_name };
+}
+
+export async function rejectArtistApplication(artistId: string, reason?: string) {
+  const supabase = await createClient();
+
+  let updatePayload: any = {
+    status: 'Rejected',
+    dakhni_verse_role: 'Rejected Applicant',
+    updated_at: new Date().toISOString(),
+  };
+
+  let { data: artist, error: updateError } = await supabase
+    .from('artists')
+    .update(updatePayload)
+    .eq('id', artistId)
+    .select('id, stage_name')
+    .single();
+
+  // If enum doesn't support 'Rejected' yet in DB, gracefully fallback to 'Inactive'
+  if (updateError && updateError.code === '22P02') {
+    updatePayload = {
+      status: 'Inactive',
+      dakhni_verse_role: 'Rejected Applicant',
+      updated_at: new Date().toISOString(),
+    };
+    const res = await supabase
+      .from('artists')
+      .update(updatePayload)
+      .eq('id', artistId)
+      .select('id, stage_name')
+      .single();
+    artist = res.data;
+    updateError = res.error;
+  }
+
+  if (updateError) {
+    console.error('Error rejecting artist application:', updateError);
+    throw new Error('Failed to reject artist application: ' + updateError.message);
+  }
+
+  try {
+    const reasonText = reason ? ` (Reason: ${reason})` : '';
+    await supabase.from('activity_logs').insert([{
+      action: 'Artist Application Rejected',
+      entity_type: 'Artist',
+      entity_id: artistId,
+      description: `Application for "${artist?.stage_name || 'Applicant'}" was rejected${reasonText}`,
+    }]);
+  } catch {}
+
+  revalidatePath('/artists');
+  revalidatePath('/artists/review');
+  revalidatePath('/dashboard');
+
+  return { success: true, stage_name: artist?.stage_name };
 }

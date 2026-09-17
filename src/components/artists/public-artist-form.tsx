@@ -257,11 +257,11 @@ export function PublicArtistForm() {
 
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-red-100 text-[#D71920] mb-3">
               <Sparkles className="w-3.5 h-3.5" />
-              {submissionResult.action === 'updated' ? 'Profile Synced & Updated' : 'Registration Complete'}
+              {submissionResult.action === 'updated' ? 'Profile Synced & Updated' : 'Application Pending Review'}
             </span>
 
             <h2 className="text-2xl sm:text-3xl font-bold font-display text-neutral-900 mb-2">
-              {submissionResult.action === 'updated' ? 'Welcome Back!' : 'You’re In The Collective!'}
+              {submissionResult.action === 'updated' ? 'Welcome Back!' : 'Application Submitted!'}
             </h2>
 
             <p className="text-neutral-600 max-w-md mx-auto mb-8 text-sm sm:text-base">
@@ -271,7 +271,7 @@ export function PublicArtistForm() {
                 </>
               ) : (
                 <>
-                  Your profile for <strong className="text-neutral-900 font-semibold">{submissionResult.stage_name}</strong> has been registered in the Dakhni Verse database.
+                  Your application for <strong className="text-neutral-900 font-semibold">{submissionResult.stage_name}</strong> has been received and is currently under review by studio management. Once approved, your profile will appear on the live collective roster.
                 </>
               )}
             </p>

@@ -1,5 +1,5 @@
 // Database enum types as union types
-export type ArtistStatus = 'Active' | 'Inactive' | 'Left';
+export type ArtistStatus = 'Active' | 'Inactive' | 'Left' | 'Pending' | 'Rejected';
 export type UserRole = 'Manager' | 'Artist' | 'Producer';
 export type ProjectStatus = 'Idea' | 'Writing' | 'Production' | 'Recording' | 'Editing' | 'Mixing' | 'Mastering' | 'Ready' | 'Released' | 'On Hold' | 'Cancelled';
 export type SessionType = 'Recording' | 'Production' | 'Editing' | 'Mixing' | 'Mastering' | 'Rehearsal' | 'Other';
