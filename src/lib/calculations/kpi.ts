@@ -246,13 +246,11 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
 
   let sessionsQuery = supabase
     .from("sessions")
-    .select("duration_minutes")
-    .limit(500);
+    .select("duration_minutes", { count: "exact" });
 
   let expensesQuery = supabase
     .from("expenses")
-    .select("amount")
-    .limit(500);
+    .select("amount");
 
   const productionStatuses = ["Production", "Recording", "Editing", "Mixing", "Mastering"];
 
@@ -271,14 +269,12 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
   let confirmedContribQuery = supabase
     .from("contributions")
     .select("amount")
-    .eq("status", "Confirmed")
-    .limit(500);
+    .eq("status", "Confirmed");
 
   let pendingContribQuery = supabase
     .from("contributions")
     .select("amount")
-    .eq("status", "Pending")
-    .limit(500);
+    .eq("status", "Pending");
 
   if (dateRange) {
     const fromStr = dateRange.from.toISOString().split("T")[0];
@@ -317,7 +313,7 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
 
   // Sessions still need row data for duration sum (no SQL SUM in Supabase client)
   const sessionsData = sessionsRes.data || [];
-  const studioSessions = sessionsData.length;
+  const studioSessions = sessionsRes.count ?? sessionsData.length;
   const totalMinutes = sessionsData.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
   const studioHours = Math.round((totalMinutes / 60) * 10) / 10;
 

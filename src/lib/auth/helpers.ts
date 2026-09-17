@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { CurrentUser } from '@/types'
 
+import { headers } from 'next/headers'
+
 export const getSession = cache(async () => {
   const supabase = await createClient()
   const { data, error } = await supabase.auth.getSession()
@@ -11,6 +13,25 @@ export const getSession = cache(async () => {
 })
 
 export const getUser = cache(async () => {
+  // Check if middleware already authenticated and forwarded user identity via headers
+  try {
+    const reqHeaders = await headers()
+    const userId = reqHeaders.get('x-user-id')
+    const userEmail = reqHeaders.get('x-user-email')
+    if (userId) {
+      return {
+        id: userId,
+        email: userEmail || '',
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: '',
+      } as any
+    }
+  } catch {
+    // headers() unavailable (e.g. static generation or background task)
+  }
+
   const supabase = await createClient()
   const { data, error } = await supabase.auth.getUser()
   if (error || !data.user) return null

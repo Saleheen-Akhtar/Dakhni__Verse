@@ -9,30 +9,46 @@ import type { ProductionWorkload } from "@/types";
  */
 
 export async function getProductionWorkload(
-  producerArtistId: string
+  producerArtistId?: string | null
 ): Promise<ProductionWorkload> {
   const supabase = await createClient();
 
-  // Production: projects where this person is the producer
-  const { data: producerProjects } = await supabase
+  let producerQuery = supabase
     .from("projects")
     .select("status")
-    .eq("producer_id", producerArtistId)
     .not("status", "eq", "Cancelled");
 
-  // Mixing: projects where this person is the mix engineer
-  const { data: mixProjects } = await supabase
+  let mixQuery = supabase
     .from("projects")
     .select("status")
-    .eq("mix_engineer_id", producerArtistId)
     .not("status", "eq", "Cancelled");
 
-  // Mastering: projects where this person is the mastering engineer
-  const { data: masterProjects } = await supabase
+  let masterQuery = supabase
     .from("projects")
     .select("status")
-    .eq("mastering_engineer_id", producerArtistId)
     .not("status", "eq", "Cancelled");
+
+  if (producerArtistId) {
+    producerQuery = producerQuery.eq("producer_id", producerArtistId);
+    mixQuery = mixQuery.eq("mix_engineer_id", producerArtistId);
+    masterQuery = masterQuery.eq("mastering_engineer_id", producerArtistId);
+  } else {
+    // Collective studio-wide workload for assigned projects
+    producerQuery = producerQuery.not("producer_id", "is", null);
+    mixQuery = mixQuery.not("mix_engineer_id", "is", null);
+    masterQuery = masterQuery.not("mastering_engineer_id", "is", null);
+  }
+
+  // Parallel execution across all 3 disciplines
+  const [
+    { data: producerProjects },
+    { data: mixProjects },
+    { data: masterProjects },
+  ] = await Promise.all([
+    producerQuery,
+    mixQuery,
+    masterQuery,
+  ]);
 
   const productionStatuses = ["Idea", "Writing", "Production", "Recording", "Editing"];
   const mixingInProgress = ["Mixing"];

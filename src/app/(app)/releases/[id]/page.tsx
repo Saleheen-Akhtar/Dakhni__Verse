@@ -1,5 +1,5 @@
 import { getReleaseById } from '@/lib/queries/releases';
-import { requireAuth, getCurrentUserProfile } from '@/lib/auth/helpers';
+import { getCurrentUserProfile } from '@/lib/auth/helpers';
 import { ReleaseDetail } from '@/components/releases/release-detail';
 import { notFound } from 'next/navigation';
 

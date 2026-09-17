@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getCurrentUserProfile } from "@/lib/auth/helpers";
 import { getDashboardKPIs } from "@/lib/calculations/kpi";
 import { getStudioKPIs } from "@/lib/calculations/studio";
+import { getProductionWorkload } from "@/lib/calculations/production";
 import { getRecentActivity } from "@/lib/activity/log";
 import { getExpenseBreakdown } from "@/lib/queries/expenses";
 import { formatCurrency } from "@/lib/utils/format";
@@ -208,9 +209,11 @@ export default async function DashboardPage({
         </Card>
       </div>
 
-      {/* Production Summary (Server Rendered) */}
+      {/* Production Summary (Streamed) */}
       {userRole === "Manager" || userRole === "Producer" ? (
-        <ProductionSummary />
+        <Suspense fallback={<div className="h-44 w-full animate-pulse bg-muted rounded-lg" />}>
+          <AsyncProductionSection userRole={userRole} artistId={profile?.artist_id} />
+        </Suspense>
       ) : null}
 
       {/* Recent Activity (Streamed) */}
@@ -255,4 +258,17 @@ async function AsyncExpenseBreakdownSection({
 async function AsyncRecentActivitySection() {
   const recentActivity = await getRecentActivity(15);
   return <RecentActivityFeed activities={recentActivity} />;
+}
+
+async function AsyncProductionSection({
+  userRole,
+  artistId,
+}: {
+  userRole: string;
+  artistId?: string | null;
+}) {
+  const workload = await getProductionWorkload(
+    userRole === "Producer" ? artistId : null
+  );
+  return <ProductionSummary workload={workload} />;
 }

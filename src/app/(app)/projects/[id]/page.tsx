@@ -1,5 +1,5 @@
 import { getProjectById, getProjectStatusHistory } from '@/lib/queries/projects';
-import { requireAuth, getCurrentUserProfile } from '@/lib/auth/helpers';
+import { getCurrentUserProfile } from '@/lib/auth/helpers';
 import { ProjectDetail } from '@/components/projects/project-detail';
 import { notFound } from 'next/navigation';
 
