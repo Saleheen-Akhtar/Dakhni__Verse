@@ -1,13 +1,10 @@
-import { requireAuth, getCurrentUserProfile } from "@/lib/auth/helpers";
+import { getCurrentUserProfile } from "@/lib/auth/helpers";
 import { getDashboardKPIs } from "@/lib/calculations/kpi";
 import { getStudioKPIs } from "@/lib/calculations/studio";
 import { getRecentActivity } from "@/lib/activity/log";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 
 export default async function DashboardPage() {
-  await requireAuth();
-  const profile = await getCurrentUserProfile();
-
   // Fetch all dashboard data with current month as default
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -15,7 +12,8 @@ export default async function DashboardPage() {
 
   const dateRange = { from: startOfMonth, to: endOfMonth };
 
-  const [kpis, studioKpis, recentActivity] = await Promise.all([
+  const [profile, kpis, studioKpis, recentActivity] = await Promise.all([
+    getCurrentUserProfile(),
     getDashboardKPIs(dateRange),
     getStudioKPIs(dateRange),
     getRecentActivity(15),

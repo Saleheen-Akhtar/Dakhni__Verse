@@ -28,11 +28,13 @@ export async function updateSession(request: NextRequest) {
     },
   })
 
+  let user = null
   try {
-    await supabase.auth.getUser()
+    const { data } = await supabase.auth.getUser()
+    user = data?.user ?? null
   } catch (err) {
     // Gracefully handle unconfigured / offline supabase in middleware
   }
 
-  return supabaseResponse
+  return { supabaseResponse, user }
 }

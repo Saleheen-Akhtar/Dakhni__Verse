@@ -7,11 +7,12 @@ import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
 export default async function ProjectsPage() {
-  await requireAuth();
-  const user = await getCurrentUserProfile();
+  const [user, projects, artists] = await Promise.all([
+    getCurrentUserProfile(),
+    getProjects(),
+    getArtistOptions(),
+  ]);
   const isManager = user?.role === 'Manager';
-  const projects = await getProjects();
-  const artists = await getArtistOptions();
 
   return (
     <div className="space-y-6">

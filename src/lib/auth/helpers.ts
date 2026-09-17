@@ -1,20 +1,21 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { CurrentUser } from '@/types'
 
-export async function getSession() {
+export const getSession = cache(async () => {
   const supabase = await createClient()
   const { data, error } = await supabase.auth.getSession()
   if (error) throw error
   return data.session
-}
+})
 
-export async function getUser() {
+export const getUser = cache(async () => {
   const supabase = await createClient()
   const { data, error } = await supabase.auth.getUser()
   if (error || !data.user) return null
   return data.user
-}
+})
 
 export async function requireAuth() {
   const user = await getUser()
@@ -24,7 +25,7 @@ export async function requireAuth() {
   return user
 }
 
-export async function getCurrentUserProfile(): Promise<CurrentUser | null> {
+export const getCurrentUserProfile = cache(async (): Promise<CurrentUser | null> => {
   const user = await getUser()
   if (!user) return null
 
@@ -38,7 +39,7 @@ export async function getCurrentUserProfile(): Promise<CurrentUser | null> {
   if (error || !profile) return null
 
   return profile as CurrentUser
-}
+})
 
 export async function requireRole(roles: string[]) {
   const profile = await getCurrentUserProfile()

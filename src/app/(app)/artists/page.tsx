@@ -1,4 +1,4 @@
-import { requireAuth, getCurrentUserProfile } from '@/lib/auth/helpers';
+import { getCurrentUserProfile } from '@/lib/auth/helpers';
 import { getArtists } from '@/lib/queries/artists';
 import { PageHeader } from '@/components/ui/page-header';
 import { ArtistDirectory } from '@/components/artists/artist-directory';
@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export default async function ArtistsPage() {
-  await requireAuth();
-  const profile = await getCurrentUserProfile();
-  const artists = await getArtists();
+  const [profile, artists] = await Promise.all([
+    getCurrentUserProfile(),
+    getArtists(),
+  ]);
 
   const actions = (
     <div className="flex items-center gap-3">

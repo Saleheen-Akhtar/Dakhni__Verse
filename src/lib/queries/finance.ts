@@ -87,17 +87,16 @@ export async function createExpense(data: any, userId?: string) {
 }
 
 export async function getFinanceSummaries() {
-  const [confirmed, pending, totalExpenses, availableFunds] = await Promise.all([
+  const [confirmed, pending, totalExpenses] = await Promise.all([
     getConfirmedContributions(),
     getPendingContributions(),
     getTotalExpenses(),
-    getAvailableFunds(),
   ]);
 
   return {
     confirmedContributions: confirmed,
     pendingContributions: pending,
     totalExpenses,
-    availableFunds,
+    availableFunds: confirmed - totalExpenses,
   };
 }

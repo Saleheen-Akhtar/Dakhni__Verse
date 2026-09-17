@@ -7,9 +7,10 @@ import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
 export default async function SessionsPage() {
-  await requireAuth();
-  const sessions = await getSessions();
-  const artists = await getArtistOptions();
+  const [sessions, artists] = await Promise.all([
+    getSessions(),
+    getArtistOptions(),
+  ]);
 
   return (
     <div className="space-y-6">

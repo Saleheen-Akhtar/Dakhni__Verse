@@ -8,14 +8,15 @@ export default async function ProjectDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAuth();
   const { id } = await params;
-  const user = await getCurrentUserProfile();
-  const project = await getProjectById(id);
+  const [user, project, history] = await Promise.all([
+    getCurrentUserProfile(),
+    getProjectById(id),
+    getProjectStatusHistory(id),
+  ]);
   
   if (!project) notFound();
 
-  const history = await getProjectStatusHistory(id);
   const isManager = user?.role === 'Manager';
 
   return (

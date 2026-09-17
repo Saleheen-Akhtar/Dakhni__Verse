@@ -40,21 +40,25 @@ export async function getArtists(filters?: { status?: string; role?: string; sea
 
 export async function getArtistById(id: string) {
   const supabase = await createClient();
-  const { data: artist, error: artistError } = await supabase
-    .from('artists')
-    .select('*, music_profile:artist_music_profiles(*)')
-    .eq('id', id)
-    .single();
+  const [
+    { data: artist, error: artistError },
+    { data: socialLinks, error: linksError },
+  ] = await Promise.all([
+    supabase
+      .from('artists')
+      .select('*, music_profile:artist_music_profiles(*)')
+      .eq('id', id)
+      .single(),
+    supabase
+      .from('artist_social_links')
+      .select('*')
+      .eq('artist_id', id),
+  ]);
 
   if (artistError || !artist) {
     console.error('Error fetching artist by id:', artistError);
     return null;
   }
-
-  const { data: socialLinks, error: linksError } = await supabase
-    .from('artist_social_links')
-    .select('*')
-    .eq('artist_id', id);
 
   if (linksError) {
     console.error('Error fetching social links:', linksError);

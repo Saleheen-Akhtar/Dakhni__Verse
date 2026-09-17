@@ -5,10 +5,12 @@ import { FinancePage } from '@/components/finance/finance-page';
 export default async function FinanceRoute() {
   await requireRole(['Manager']);
   
-  const summaries = await getFinanceSummaries();
-  const contributions = await getContributions();
-  const expenses = await getExpenses();
-  const artists = await getArtistOptions();
+  const [summaries, contributions, expenses, artists] = await Promise.all([
+    getFinanceSummaries(),
+    getContributions(),
+    getExpenses(),
+    getArtistOptions(),
+  ]);
 
   return (
     <div className="space-y-6">

@@ -212,7 +212,6 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
     studioHours,
     confirmedContributions,
     totalExpenses,
-    availableFunds,
     pendingContributions,
   ] = await Promise.all([
     getActiveArtistCount(),
@@ -223,9 +222,10 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
     getStudioHours(dateRange),
     getConfirmedContributions(dateRange),
     getTotalExpenses(dateRange),
-    getAvailableFunds(),
     getPendingContributions(),
   ]);
+
+  const availableFunds = confirmedContributions - totalExpenses;
 
   return {
     activeArtists,
