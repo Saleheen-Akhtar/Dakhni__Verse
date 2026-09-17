@@ -1,72 +1,19 @@
 -- =============================================================================
--- Migration 004: Fix Public Intake Submission & Row-Level Security (RLS)
--- Copy and run this entire script in your Supabase SQL Editor:
--- Supabase Dashboard -> SQL Editor -> New Query -> Paste & Click Run
+-- Migration 004: Bulletproof Public Intake Submission
+-- Run this in Supabase Dashboard -> SQL Editor -> New Query -> Run
 -- =============================================================================
 
--- 1. Ensure 'Pending' and 'Rejected' statuses exist in the artist_status enum
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typname = 'artist_status' AND e.enumlabel = 'Pending') THEN
-        ALTER TYPE artist_status ADD VALUE 'Pending';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typname = 'artist_status' AND e.enumlabel = 'Rejected') THEN
-        ALTER TYPE artist_status ADD VALUE 'Rejected';
-    END IF;
-END $$;
+-- 1. Add 'Pending' and 'Rejected' to enum as standalone DDL statements
+ALTER TYPE artist_status ADD VALUE IF NOT EXISTS 'Pending';
+ALTER TYPE artist_status ADD VALUE IF NOT EXISTS 'Rejected';
 
--- 2. Drop existing policies if they exist to prevent duplicates
-DROP POLICY IF EXISTS "Allow public insert on artists" ON artists;
-DROP POLICY IF EXISTS "Allow public update on artists" ON artists;
-DROP POLICY IF EXISTS "Allow public read on artists" ON artists;
+-- 2. Grant table access to anon and authenticated roles
+GRANT ALL ON TABLE artists TO anon, authenticated, service_role;
+GRANT ALL ON TABLE artist_music_profiles TO anon, authenticated, service_role;
+GRANT ALL ON TABLE artist_social_links TO anon, authenticated, service_role;
+GRANT ALL ON TABLE activity_logs TO anon, authenticated, service_role;
 
-DROP POLICY IF EXISTS "Allow public insert on artist_music_profiles" ON artist_music_profiles;
-DROP POLICY IF EXISTS "Allow public update on artist_music_profiles" ON artist_music_profiles;
-DROP POLICY IF EXISTS "Allow public read on artist_music_profiles" ON artist_music_profiles;
-
-DROP POLICY IF EXISTS "Allow public insert on artist_social_links" ON artist_social_links;
-DROP POLICY IF EXISTS "Allow public update on artist_social_links" ON artist_social_links;
-DROP POLICY IF EXISTS "Allow public delete on artist_social_links" ON artist_social_links;
-DROP POLICY IF EXISTS "Allow public read on artist_social_links" ON artist_social_links;
-
-DROP POLICY IF EXISTS "Allow public insert on activity_logs" ON activity_logs;
-
--- 3. Create Public Row-Level Security Policies for Public Intake
-CREATE POLICY "Allow public insert on artists" ON artists 
-    FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Allow public update on artists" ON artists 
-    FOR UPDATE USING (true);
-
-CREATE POLICY "Allow public read on artists" ON artists 
-    FOR SELECT USING (true);
-
-CREATE POLICY "Allow public insert on artist_music_profiles" ON artist_music_profiles 
-    FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Allow public update on artist_music_profiles" ON artist_music_profiles 
-    FOR UPDATE USING (true);
-
-CREATE POLICY "Allow public read on artist_music_profiles" ON artist_music_profiles 
-    FOR SELECT USING (true);
-
-CREATE POLICY "Allow public insert on artist_social_links" ON artist_social_links 
-    FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Allow public update on artist_social_links" ON artist_social_links 
-    FOR UPDATE USING (true);
-
-CREATE POLICY "Allow public delete on artist_social_links" ON artist_social_links 
-    FOR DELETE USING (true);
-
-CREATE POLICY "Allow public read on artist_social_links" ON artist_social_links 
-    FOR SELECT USING (true);
-
-CREATE POLICY "Allow public insert on activity_logs" ON activity_logs 
-    FOR INSERT WITH CHECK (true);
-
--- 4. Atomic Stored Procedure: submit_public_artist (with SECURITY DEFINER)
--- Runs with admin privileges to safely record applicant profiles without permission issues.
+-- 3. Stored procedure with automatic enum fallback
 CREATE OR REPLACE FUNCTION public.submit_public_artist(
     p_artist_data JSONB,
     p_profile_data JSONB DEFAULT '{}'::JSONB,
@@ -115,7 +62,7 @@ BEGIN
         LIMIT 1;
     END IF;
 
-    -- Update existing profile or Insert new applicant as Pending
+    -- Update existing profile or Insert new applicant
     IF v_existing_id IS NOT NULL THEN
         v_action := 'updated';
         v_artist_id := v_existing_id;
@@ -133,29 +80,56 @@ BEGIN
     ELSE
         v_action := 'created';
 
-        INSERT INTO artists (
-            stage_name,
-            legal_name,
-            profile_image_url,
-            location,
-            phone,
-            email,
-            date_joined,
-            status,
-            dakhni_verse_role
-        )
-        VALUES (
-            v_stage_name,
-            NULLIF(p_artist_data->>'legal_name', ''),
-            NULLIF(p_artist_data->>'profile_image_url', ''),
-            NULLIF(p_artist_data->>'location', ''),
-            v_phone,
-            v_email,
-            CURRENT_DATE,
-            'Pending',
-            COALESCE(NULLIF(p_artist_data->>'dakhni_verse_role', ''), 'Applicant')
-        )
-        RETURNING id INTO v_artist_id;
+        -- Try inserting with status 'Pending'. If enum doesn't have it yet, fall back to 'Inactive'
+        BEGIN
+            INSERT INTO artists (
+                stage_name,
+                legal_name,
+                profile_image_url,
+                location,
+                phone,
+                email,
+                date_joined,
+                status,
+                dakhni_verse_role
+            )
+            VALUES (
+                v_stage_name,
+                NULLIF(p_artist_data->>'legal_name', ''),
+                NULLIF(p_artist_data->>'profile_image_url', ''),
+                NULLIF(p_artist_data->>'location', ''),
+                v_phone,
+                v_email,
+                CURRENT_DATE,
+                'Pending',
+                COALESCE(NULLIF(p_artist_data->>'dakhni_verse_role', ''), 'Applicant')
+            )
+            RETURNING id INTO v_artist_id;
+        EXCEPTION WHEN invalid_text_representation THEN
+            INSERT INTO artists (
+                stage_name,
+                legal_name,
+                profile_image_url,
+                location,
+                phone,
+                email,
+                date_joined,
+                status,
+                dakhni_verse_role
+            )
+            VALUES (
+                v_stage_name,
+                NULLIF(p_artist_data->>'legal_name', ''),
+                NULLIF(p_artist_data->>'profile_image_url', ''),
+                NULLIF(p_artist_data->>'location', ''),
+                v_phone,
+                v_email,
+                CURRENT_DATE,
+                'Inactive',
+                'Pending Applicant'
+            )
+            RETURNING id INTO v_artist_id;
+        END;
     END IF;
 
     -- Upsert Artist Music Profile
@@ -246,5 +220,5 @@ BEGIN
 END;
 $$;
 
--- Grant execution permissions
+-- 4. Grant execution permissions
 GRANT EXECUTE ON FUNCTION public.submit_public_artist(JSONB, JSONB, JSONB) TO anon, authenticated, service_role;
