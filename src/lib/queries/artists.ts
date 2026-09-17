@@ -6,6 +6,14 @@ import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
 import { headers } from 'next/headers';
 import { checkRateLimit } from '@/lib/security/rate-limit';
 import { measureQuery } from '@/lib/telemetry/perf';
+import { requireUserSession, requireManagerAction } from '@/lib/auth/helpers';
+import { z } from 'zod';
+import {
+  createArtistSchema,
+  updateArtistSchema,
+  artistMusicProfileSchema,
+  artistSocialLinkSchema,
+} from '@/lib/validation/artist';
 import type { Artist, ArtistWithProfile, ArtistSocialLink, ArtistMusicProfile } from '@/types';
 
 function getAdminSupabase() {
@@ -17,6 +25,20 @@ function getAdminSupabase() {
     });
   }
   return null;
+}
+
+function getStatelessSupabase() {
+  const admin = getAdminSupabase();
+  if (admin) return admin;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+  return createSupabaseClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
 
 export async function getArtists(filters?: { status?: string; role?: string; search?: string; page?: number; pageSize?: number }) {
@@ -97,7 +119,7 @@ export async function getArtistById(id: string) {
 export const getArtistOptions = unstable_cache(
   async () => {
     return measureQuery('getArtistOptions', async () => {
-      const supabase = await createClient();
+      const supabase = getStatelessSupabase();
       const { data, error } = await supabase
         .from('artists')
         .select('id, stage_name')
@@ -116,24 +138,27 @@ export const getArtistOptions = unstable_cache(
 );
 
 export async function createArtist(data: any, musicProfile?: any, socialLinks?: any[]) {
+  await requireManagerAction();
   const supabase = await createClient();
   
   // Separate core artist table fields
-  const artistData: any = {
-    stage_name: (data.stage_name || '').trim(),
-    legal_name: data.legal_name || null,
-    profile_image_url: data.profile_image_url || null,
-    location: data.location || null,
-    phone: data.phone || null,
-    email: data.email || null,
-    date_joined: data.date_joined || new Date().toISOString().split('T')[0],
-    status: data.status || 'Active',
-    dakhni_verse_role: data.dakhni_verse_role || null,
+  const artistData = {
+    stage_name: (data?.stage_name || '').trim(),
+    legal_name: data?.legal_name || null,
+    profile_image_url: data?.profile_image_url || null,
+    location: data?.location || null,
+    phone: data?.phone || null,
+    email: data?.email || null,
+    date_joined: data?.date_joined || new Date().toISOString().split('T')[0],
+    status: data?.status || 'Active',
+    dakhni_verse_role: data?.dakhni_verse_role || null,
   };
 
+  const validatedArtist = createArtistSchema.parse(artistData);
+
   // Extract music profile data
-  const profileSource = musicProfile || data;
-  const musicProfileData: any = {
+  const profileSource = musicProfile || data || {};
+  const musicProfileData = {
     primary_role: profileSource.primary_role || null,
     genres: Array.isArray(profileSource.genres) ? profileSource.genres : (profileSource.genres ? [profileSource.genres] : []),
     subgenres: Array.isArray(profileSource.subgenres) ? profileSource.subgenres : (profileSource.subgenres ? [profileSource.subgenres] : []),
@@ -146,23 +171,25 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
     preferred_producers: profileSource.preferred_producers || null,
     bio: profileSource.bio || null,
   };
+  const validatedProfile = artistMusicProfileSchema.parse(musicProfileData);
 
   // Extract social links
-  const linksSource = socialLinks || data.socialLinks || data.social_links || [];
+  const linksSource = socialLinks || data?.socialLinks || data?.social_links || [];
   const normalizedLinks = Array.isArray(linksSource)
     ? linksSource
-        .filter((link: any) => link.url && link.url.trim() !== '')
+        .filter((link: any) => link && link.url && link.url.trim() !== '')
         .map((link: any) => ({
           platform: link.platform || 'Other',
           url: link.url.trim(),
         }))
     : [];
+  const validatedLinks = z.array(artistSocialLinkSchema).parse(normalizedLinks);
 
   // Execute atomic PostgreSQL RPC procedure (Single Source of Truth)
   const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_artist_transactional', {
-    p_artist_data: artistData,
-    p_profile_data: musicProfileData,
-    p_social_links: normalizedLinks,
+    p_artist_data: validatedArtist,
+    p_profile_data: validatedProfile,
+    p_social_links: validatedLinks,
   });
 
   if (rpcErr) {
@@ -180,29 +207,48 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
     .single();
 
   if (fetchErr) throw fetchErr;
+  revalidatePath('/artists');
   revalidateTag('artist-options');
   return createdArtist;
 }
 
 export async function updateArtist(id: string, data: any) {
-  const supabase = await createClient();
-  
-  const allowedFields = [
-    'stage_name',
-    'legal_name',
-    'profile_image_url',
-    'location',
-    'phone',
-    'email',
-    'date_joined',
-    'status',
-    'dakhni_verse_role',
-  ];
+  const session = await requireUserSession();
+  const isManager = session.profile?.role === 'Manager';
+  const isOwner = session.profile?.artist_id === id;
 
-  const updateData: any = {};
+  if (!isManager && !isOwner) {
+    throw new Error('Unauthorized: You can only update your own artist profile');
+  }
+
+  const validatedData = updateArtistSchema.parse(data);
+  const supabase = await createClient();
+
+  const allowedFields = isManager
+    ? [
+        'stage_name',
+        'legal_name',
+        'profile_image_url',
+        'location',
+        'phone',
+        'email',
+        'date_joined',
+        'status',
+        'dakhni_verse_role',
+      ]
+    : [
+        'stage_name',
+        'legal_name',
+        'profile_image_url',
+        'location',
+        'phone',
+        'email',
+      ];
+
+  const updateData: Record<string, any> = {};
   for (const field of allowedFields) {
-    if (data[field] !== undefined) {
-      updateData[field] = data[field];
+    if ((validatedData as any)[field] !== undefined) {
+      updateData[field] = (validatedData as any)[field];
     }
   }
 
@@ -214,11 +260,22 @@ export async function updateArtist(id: string, data: any) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/artists');
+  revalidatePath(`/artists/${id}`);
   revalidateTag('artist-options');
   return artist;
 }
 
 export async function updateArtistMusicProfile(artistId: string, data: any) {
+  const session = await requireUserSession();
+  const isManager = session.profile?.role === 'Manager';
+  const isOwner = session.profile?.artist_id === artistId;
+
+  if (!isManager && !isOwner) {
+    throw new Error('Unauthorized: You can only update your own music profile');
+  }
+
+  const validatedData = artistMusicProfileSchema.partial().parse(data);
   const supabase = await createClient();
 
   const allowedFields = [
@@ -235,10 +292,10 @@ export async function updateArtistMusicProfile(artistId: string, data: any) {
     'bio',
   ];
 
-  const profileData: any = { artist_id: artistId };
+  const profileData: Record<string, any> = { artist_id: artistId };
   for (const field of allowedFields) {
-    if (data[field] !== undefined) {
-      profileData[field] = data[field];
+    if ((validatedData as any)[field] !== undefined) {
+      profileData[field] = (validatedData as any)[field];
     }
   }
 
@@ -249,6 +306,7 @@ export async function updateArtistMusicProfile(artistId: string, data: any) {
     .single();
 
   if (error) throw error;
+  revalidatePath(`/artists/${artistId}`);
   return profile;
 }
 
@@ -264,67 +322,53 @@ export async function saveArtistFull(id: string, artistData: any, musicProfileDa
 }
 
 export async function updateArtistSocialLinks(artistId: string, links: Array<{platform: string; url: string}>) {
-  const supabase = await createClient();
-  const validLinks = (links || []).filter(l => l && l.url && l.url.trim() !== '');
+  const session = await requireUserSession();
+  const isManager = session.profile?.role === 'Manager';
+  const isOwner = session.profile?.artist_id === artistId;
 
+  if (!isManager && !isOwner) {
+    throw new Error('Unauthorized: You can only update your own social links');
+  }
+
+  const validLinks = (links || [])
+    .filter(l => l && l.url && l.url.trim() !== '')
+    .map(l => ({ platform: l.platform || 'Other', url: l.url.trim() }));
+  const validatedLinks = z.array(artistSocialLinkSchema).parse(validLinks);
+
+  const supabase = await createClient();
   // Execute atomic PostgreSQL procedure (Single Source of Truth)
   const { error: rpcError } = await supabase.rpc('replace_artist_social_links', {
     p_artist_id: artistId,
-    p_social_links: validLinks,
+    p_social_links: validatedLinks,
   });
 
   if (rpcError) {
     throw new Error(`Failed to update social links transactionally: ${rpcError.message}`);
   }
+  revalidatePath(`/artists/${artistId}`);
 }
 
 export async function deleteArtist(id: string) {
+  await requireManagerAction();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Authentication required');
-  const { data: currentUser } = await supabase.from('users').select('role').eq('id', user.id).single();
-  if (currentUser?.role !== 'Manager') throw new Error('Manager role required');
 
-  // Check for historical linked data to preserve data integrity
-  const [
-    { count: projectCount },
-    { count: sessionCount },
-    { count: releaseCount },
-    { count: contribCount },
-  ] = await Promise.all([
-    supabase.from('projects').select('*', { count: 'exact', head: true }).or(`artist_id.eq.${id},producer_id.eq.${id}`),
-    supabase.from('sessions').select('*', { count: 'exact', head: true }).or(`artist_id.eq.${id},engineer_id.eq.${id}`),
-    supabase.from('releases').select('*', { count: 'exact', head: true }).eq('artist_id', id),
-    supabase.from('contributions').select('*', { count: 'exact', head: true }).eq('person_id', id),
-  ]);
+  // Strict archive-only policy: preserve relational integrity permanently
+  const { error } = await supabase
+    .from('artists')
+    .update({
+      status: 'Inactive',
+      dakhni_verse_role: 'Archived',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
 
-  const hasHistoricalData = (projectCount || 0) + (sessionCount || 0) + (releaseCount || 0) + (contribCount || 0) > 0;
+  if (error) throw error;
 
-  if (hasHistoricalData) {
-    // Safe soft-archive: preserve records while removing from active rosters
-    const { error } = await supabase
-      .from('artists')
-      .update({
-        status: 'Inactive',
-        dakhni_verse_role: 'Archived',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    if (error) throw error;
-  } else {
-    // Clean physical delete for empty/unreferenced records
-    const { error } = await supabase
-      .from('artists')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-  }
-
+  revalidatePath('/artists');
   revalidateTag('artist-options');
   return true;
 }
+
 
 export async function getArtistStats(artistId: string) {
   const supabase = await createClient();

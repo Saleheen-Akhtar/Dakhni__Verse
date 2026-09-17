@@ -5,11 +5,25 @@ import { z } from "zod";
 export const createArtistSchema = z.object({
   stage_name: z.string().min(1, "Stage name is required").max(100),
   legal_name: z.string().max(200).optional().or(z.literal("")),
+  profile_image_url: z
+    .string()
+    .refine(
+      (val) =>
+        !val ||
+        val.startsWith("http://") ||
+        val.startsWith("https://") ||
+        val.startsWith("data:image/") ||
+        val.startsWith("/"),
+      { message: "Invalid image URL or data URI" }
+    )
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
   location: z.string().max(200).optional().or(z.literal("")),
   phone: z.string().max(20).optional().or(z.literal("")),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   date_joined: z.string().min(1, "Date joined is required"),
-  status: z.enum(["Active", "Inactive", "Left"]),
+  status: z.enum(["Active", "Inactive", "Left", "Pending", "Rejected"]),
   dakhni_verse_role: z.string().max(100).optional().or(z.literal("")),
 });
 
