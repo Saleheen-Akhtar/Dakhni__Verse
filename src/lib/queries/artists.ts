@@ -267,6 +267,10 @@ export async function updateArtistSocialLinks(artistId: string, links: Array<{pl
 
 export async function deleteArtist(id: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Authentication required');
+  const { data: currentUser } = await supabase.from('users').select('role').eq('id', user.id).single();
+  if (currentUser?.role !== 'Manager') throw new Error('Manager role required');
   const { error } = await supabase
     .from('artists')
     .delete()
@@ -285,8 +289,8 @@ export async function getArtistStats(artistId: string) {
     { count: totalSessions },
     { count: totalReleases }
   ] = await Promise.all([
-    supabase.from('projects').select('*', { count: 'exact', head: true }).eq('artist_id', artistId).eq('status', 'in_progress'),
-    supabase.from('projects').select('*', { count: 'exact', head: true }).eq('artist_id', artistId).eq('status', 'released'),
+    supabase.from('projects').select('*', { count: 'exact', head: true }).eq('artist_id', artistId).not('status', 'in', '("Released","On Hold","Cancelled")'),
+    supabase.from('projects').select('*', { count: 'exact', head: true }).eq('artist_id', artistId).eq('status', 'Released'),
     supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('artist_id', artistId),
     supabase.from('releases').select('*', { count: 'exact', head: true }).eq('artist_id', artistId)
   ]);
@@ -374,157 +378,61 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
     console.log('RPC catch error:', rpcCatchErr);
   }
 
-  // 2. Fallback: Search for existing artist by email, stage name, or phone
-  let existingArtist: any = null;
-
-  if (email) {
-    const { data: matchByEmail } = await supabase
-      .from('artists')
-      .select('id, stage_name, email, phone')
-      .ilike('email', email)
-      .limit(1)
-      .maybeSingle();
-    if (matchByEmail) existingArtist = matchByEmail;
-  }
-
-  if (!existingArtist && stageName) {
-    const { data: matchByName } = await supabase
-      .from('artists')
-      .select('id, stage_name, email, phone')
-      .ilike('stage_name', stageName)
-      .limit(1)
-      .maybeSingle();
-    if (matchByName) existingArtist = matchByName;
-  }
-
-  if (!existingArtist && phone) {
-    const { data: matchByPhone } = await supabase
-      .from('artists')
-      .select('id, stage_name, email, phone')
-      .eq('phone', phone)
-      .limit(1)
-      .maybeSingle();
-    if (matchByPhone) existingArtist = matchByPhone;
-  }
-
-  let artistId: string;
-  let action: 'created' | 'updated';
-
+  // 2. Fallback: Always create a new Pending applicant (never update existing)
   try {
-    if (existingArtist) {
-      action = 'updated';
-      artistId = existingArtist.id;
+    let newArtistData: any = {
+      ...artistData,
+      date_joined: new Date().toISOString().split('T')[0],
+      status: 'Pending',
+      dakhni_verse_role: 'Pending Applicant',
+    };
 
-      // Update existing artist details with the latest submitted information
-      const updatePayload: any = {
-        stage_name: stageName,
-        status: 'Active',
-      };
-      if (legalName) updatePayload.legal_name = legalName;
-      if (profileImageUrl) updatePayload.profile_image_url = profileImageUrl;
-      if (location) updatePayload.location = location;
-      if (phone) updatePayload.phone = phone;
-      if (email) updatePayload.email = email;
+    let { data: newArtist, error: createError } = await supabase
+      .from('artists')
+      .insert([newArtistData])
+      .select()
+      .single();
 
-      const { error: updateError } = await supabase
-        .from('artists')
-        .update(updatePayload)
-        .eq('id', artistId);
-
-      if (updateError) {
-        console.error('Error updating existing artist in fallback:', updateError);
-        throw updateError;
-      }
-
-      // Upsert music profile
-      const musicPayload = {
-        artist_id: artistId,
-        ...profileData,
-      };
-      const { error: profileError } = await supabase
-        .from('artist_music_profiles')
-        .upsert(musicPayload, { onConflict: 'artist_id' });
-
-      if (profileError) {
-        console.error('Error updating music profile in fallback:', profileError);
-        throw profileError;
-      }
-
-      // Sync social links
-      if (socialLinks !== undefined) {
-        await supabase.from('artist_social_links').delete().eq('artist_id', artistId);
-        if (socialLinks.length > 0) {
-          const linksToInsert = socialLinks.map((l: any) => ({ ...l, artist_id: artistId }));
-          await supabase.from('artist_social_links').insert(linksToInsert);
-        }
-      }
-
-      try {
-        await supabase.from('activity_logs').insert([{
-          action: 'Artist Profile Updated',
-          entity_type: 'Artist',
-          entity_id: artistId,
-          description: `Artist "${stageName}" updated their profile via self-service form`,
-        }]);
-      } catch {
-        // Non-blocking log insertion
-      }
-    } else {
-      action = 'created';
-      let newArtistData: any = {
-        ...artistData,
-        date_joined: new Date().toISOString().split('T')[0],
-        status: 'Pending',
-        dakhni_verse_role: 'Pending Applicant',
-      };
-
-      let { data: newArtist, error: createError } = await supabase
+    // If enum doesn't support 'Pending', fallback to 'Inactive'
+    if (createError && createError.code === '22P02') {
+      newArtistData.status = 'Inactive';
+      newArtistData.dakhni_verse_role = 'Pending Applicant';
+      const res = await supabase
         .from('artists')
         .insert([newArtistData])
         .select()
         .single();
+      newArtist = res.data;
+      createError = res.error;
+    }
 
-      // If enum in Supabase hasn't been altered to include 'Pending' yet, gracefully fallback to 'Inactive'
-      if (createError && createError.code === '22P02') {
-        newArtistData.status = 'Inactive';
-        newArtistData.dakhni_verse_role = 'Pending Applicant';
-        const res = await supabase
-          .from('artists')
-          .insert([newArtistData])
-          .select()
-          .single();
-        newArtist = res.data;
-        createError = res.error;
-      }
+    if (createError) throw createError;
+    const artistId = newArtist.id;
 
-      if (createError) throw createError;
-      artistId = newArtist.id;
+    const musicPayload = {
+      artist_id: artistId,
+      ...profileData,
+    };
+    const { error: profileError } = await supabase
+      .from('artist_music_profiles')
+      .insert([musicPayload]);
 
-      const musicPayload = {
-        artist_id: artistId,
-        ...profileData,
-      };
-      const { error: profileError } = await supabase
-        .from('artist_music_profiles')
-        .insert([musicPayload]);
+    if (profileError) console.error('Error creating music profile in fallback:', profileError);
 
-      if (profileError) console.error('Error creating music profile in fallback:', profileError);
+    if (socialLinks.length > 0) {
+      const linksToInsert = socialLinks.map((l: any) => ({ ...l, artist_id: artistId }));
+      await supabase.from('artist_social_links').insert(linksToInsert);
+    }
 
-      if (socialLinks.length > 0) {
-        const linksToInsert = socialLinks.map((l: any) => ({ ...l, artist_id: artistId }));
-        await supabase.from('artist_social_links').insert(linksToInsert);
-      }
-
-      try {
-        await supabase.from('activity_logs').insert([{
-          action: 'Artist Application Submitted',
-          entity_type: 'Artist',
-          entity_id: artistId,
-          description: `New application submitted by "${stageName}" (Pending Manager Review)`,
-        }]);
-      } catch {
-        // Non-blocking log insertion
-      }
+    try {
+      await supabase.from('activity_logs').insert([{
+        action: 'Artist Application Submitted',
+        entity_type: 'Artist',
+        entity_id: artistId,
+        description: `New application submitted by "${stageName}" (Pending Manager Review)`,
+      }]);
+    } catch {
+      // Non-blocking log insertion
     }
 
     revalidatePath('/artists');
@@ -536,7 +444,7 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
 
     return {
       success: true,
-      action,
+      action: 'created',
       artist_id: artistId,
       stage_name: stageName,
     };
@@ -572,7 +480,7 @@ export async function getArtistApplications(filterStatus: 'Pending' | 'Rejected'
 
   if (filterStatus === 'Pending') {
     return all.filter(
-      (a) => a.status === 'Pending' || a.dakhni_verse_role === 'Pending Applicant'
+      (a) => a.status === 'Pending' || a.dakhni_verse_role === 'Pending Applicant' || a.dakhni_verse_role === 'Re-Application'
     );
   }
 
@@ -587,7 +495,8 @@ export async function getArtistApplications(filterStatus: 'Pending' | 'Rejected'
       a.status === 'Pending' ||
       a.status === 'Rejected' ||
       a.dakhni_verse_role === 'Pending Applicant' ||
-      a.dakhni_verse_role === 'Rejected Applicant'
+      a.dakhni_verse_role === 'Rejected Applicant' ||
+      a.dakhni_verse_role === 'Re-Application'
   );
 }
 
@@ -599,12 +508,77 @@ export async function getPendingApplicationsCount(): Promise<number> {
 
   if (error || !data) return 0;
   return data.filter(
-    (a) => a.status === 'Pending' || a.dakhni_verse_role === 'Pending Applicant'
+    (a) => a.status === 'Pending' || a.dakhni_verse_role === 'Pending Applicant' || a.dakhni_verse_role === 'Re-Application'
   ).length;
 }
 
 export async function acceptArtistApplication(artistId: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Authentication required');
+  const { data: currentUser } = await supabase.from('users').select('role').eq('id', user.id).single();
+  if (currentUser?.role !== 'Manager') throw new Error('Manager role required');
+
+  // Check if this application is a re-application / duplicate of an existing artist
+  const { data: applicant } = await supabase
+    .from('artists')
+    .select('*, music_profile:artist_music_profiles(*), social_links:artist_social_links(*)')
+    .eq('id', artistId)
+    .single();
+
+  if (applicant?.duplicate_of_id) {
+    const existingId = applicant.duplicate_of_id;
+    // 1. Merge submitted fields into the existing active artist record (never alter identity or ID)
+    const updateFields: any = { updated_at: new Date().toISOString() };
+    if (applicant.legal_name) updateFields.legal_name = applicant.legal_name;
+    if (applicant.profile_image_url) updateFields.profile_image_url = applicant.profile_image_url;
+    if (applicant.location) updateFields.location = applicant.location;
+    if (applicant.phone) updateFields.phone = applicant.phone;
+    if (applicant.email) updateFields.email = applicant.email;
+
+    await supabase.from('artists').update(updateFields).eq('id', existingId);
+
+    // 2. Merge music profile
+    if (applicant.music_profile) {
+      const { id: _pId, artist_id: _aId, ...profileData } = applicant.music_profile;
+      await supabase.from('artist_music_profiles').upsert({
+        artist_id: existingId,
+        ...profileData,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'artist_id' });
+    }
+
+    // 3. Merge social links
+    if (applicant.social_links && applicant.social_links.length > 0) {
+      await supabase.from('artist_social_links').delete().eq('artist_id', existingId);
+      const linksToInsert = applicant.social_links.map((l: any) => ({
+        artist_id: existingId,
+        platform: l.platform,
+        url: l.url,
+      }));
+      await supabase.from('artist_social_links').insert(linksToInsert);
+    }
+
+    // 4. Delete the pending application record so no duplicate artist identity is created
+    await supabase.from('artists').delete().eq('id', artistId);
+
+    // 5. Activity log
+    try {
+      await supabase.from('activity_logs').insert([{
+        action: 'Artist Profile Updated',
+        entity_type: 'Artist',
+        entity_id: existingId,
+        description: `Re-application for "${applicant.stage_name}" approved: updates merged into existing profile without creating duplicate artist.`,
+      }]);
+    } catch {}
+
+    revalidatePath('/artists');
+    revalidatePath('/artists/review');
+    revalidatePath('/dashboard');
+    revalidatePath(`/artists/${existingId}`);
+
+    return { success: true, stage_name: applicant.stage_name, merged: true };
+  }
 
   const { data: artist, error: updateError } = await supabase
     .from('artists')
@@ -641,6 +615,10 @@ export async function acceptArtistApplication(artistId: string) {
 
 export async function rejectArtistApplication(artistId: string, reason?: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Authentication required');
+  const { data: currentUser } = await supabase.from('users').select('role').eq('id', user.id).single();
+  if (currentUser?.role !== 'Manager') throw new Error('Manager role required');
 
   let updatePayload: any = {
     status: 'Rejected',

@@ -205,6 +205,34 @@ export interface DashboardKPIs {
 export async function getDashboardKPIs(dateRange?: DateRange): Promise<DashboardKPIs> {
   const supabase = await createClient();
 
+  // 1. Try native database-side RPC aggregation (fastest, single roundtrip)
+  try {
+    const fromStr = dateRange ? dateRange.from.toISOString().split("T")[0] : null;
+    const toStr = dateRange ? dateRange.to.toISOString().split("T")[0] : null;
+
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_kpis_rpc', {
+      p_from: fromStr,
+      p_to: toStr,
+    });
+
+    if (!rpcError && rpcData) {
+      return {
+        activeArtists: Number(rpcData.activeArtists || 0),
+        activeProjects: Number(rpcData.activeProjects || 0),
+        songsInProduction: Number(rpcData.songsInProduction || 0),
+        songsReleased: Number(rpcData.songsReleased || 0),
+        studioSessions: Number(rpcData.studioSessions || 0),
+        studioHours: Number(rpcData.studioHours || 0),
+        confirmedContributions: Number(rpcData.confirmedContributions || 0),
+        pendingContributions: Number(rpcData.pendingContributions || 0),
+        totalExpenses: Number(rpcData.totalExpenses || 0),
+        availableFunds: Number(rpcData.availableFunds || 0),
+      };
+    }
+  } catch {
+    // Graceful fallback to optimized queries below
+  }
+
   let releasesQuery = supabase
     .from("releases")
     .select("*", { count: "exact", head: true })
@@ -214,60 +242,79 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
     .from("sessions")
     .select("duration_minutes");
 
-  let contributionsQuery = supabase
-    .from("contributions")
-    .select("amount, status");
-
   let expensesQuery = supabase
     .from("expenses")
     .select("amount");
+
+  const productionStatuses = ["Production", "Recording", "Editing", "Mixing", "Mastering"];
+
+  // Use SQL count queries instead of fetching all rows
+  let activeProjectsQuery = supabase
+    .from("projects")
+    .select("*", { count: "exact", head: true })
+    .not("status", "in", '("Released","Cancelled")');
+
+  let productionQuery = supabase
+    .from("projects")
+    .select("*", { count: "exact", head: true })
+    .in("status", productionStatuses);
+
+  // For contributions, split into two count+sum queries
+  let confirmedContribQuery = supabase
+    .from("contributions")
+    .select("amount")
+    .eq("status", "Confirmed");
+
+  let pendingContribQuery = supabase
+    .from("contributions")
+    .select("amount")
+    .eq("status", "Pending");
 
   if (dateRange) {
     const fromStr = dateRange.from.toISOString().split("T")[0];
     const toStr = dateRange.to.toISOString().split("T")[0];
     releasesQuery = releasesQuery.gte("release_date", fromStr).lte("release_date", toStr);
     sessionsQuery = sessionsQuery.gte("session_date", fromStr).lte("session_date", toStr);
-    contributionsQuery = contributionsQuery.gte("contribution_date", fromStr).lte("contribution_date", toStr);
     expensesQuery = expensesQuery.gte("expense_date", fromStr).lte("expense_date", toStr);
+    confirmedContribQuery = confirmedContribQuery.gte("contribution_date", fromStr).lte("contribution_date", toStr);
+    pendingContribQuery = pendingContribQuery.gte("contribution_date", fromStr).lte("contribution_date", toStr);
   }
-
-  const productionStatuses = new Set(["Production", "Recording", "Editing", "Mixing", "Mastering"]);
 
   const [
     artistsRes,
-    projectsRes,
+    activeProjectsRes,
+    productionRes,
     releasesRes,
     sessionsRes,
-    contributionsRes,
+    confirmedContribRes,
+    pendingContribRes,
     expensesRes,
   ] = await Promise.all([
     supabase.from("artists").select("*", { count: "exact", head: true }).eq("status", "Active"),
-    supabase.from("projects").select("status"),
+    activeProjectsQuery,
+    productionQuery,
     releasesQuery,
     sessionsQuery,
-    contributionsQuery,
+    confirmedContribQuery,
+    pendingContribQuery,
     expensesQuery,
   ]);
 
   const activeArtists = artistsRes.count ?? 0;
-
-  const projectsData = projectsRes.data || [];
-  const activeProjects = projectsData.filter((p) => p.status !== "Released" && p.status !== "Cancelled").length;
-  const songsInProduction = projectsData.filter((p) => productionStatuses.has(p.status)).length;
-
+  const activeProjects = activeProjectsRes.count ?? 0;
+  const songsInProduction = productionRes.count ?? 0;
   const songsReleased = releasesRes.count ?? 0;
 
+  // Sessions still need row data for duration sum (no SQL SUM in Supabase client)
   const sessionsData = sessionsRes.data || [];
   const studioSessions = sessionsData.length;
   const totalMinutes = sessionsData.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
   const studioHours = Math.round((totalMinutes / 60) * 10) / 10;
 
-  const contributionsData = contributionsRes.data || [];
-  const confirmedContributions = contributionsData
-    .filter((c) => c.status === "Confirmed")
+  // Pre-filtered contribution sums
+  const confirmedContributions = (confirmedContribRes.data || [])
     .reduce((sum, c) => sum + Number(c.amount || 0), 0);
-  const pendingContributions = contributionsData
-    .filter((c) => c.status === "Pending")
+  const pendingContributions = (pendingContribRes.data || [])
     .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   const expensesData = expensesRes.data || [];

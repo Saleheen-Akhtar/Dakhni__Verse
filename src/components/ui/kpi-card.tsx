@@ -41,7 +41,7 @@ export function KPICard({ label, value, icon, href, trend, className, ...props }
 
   if (href) {
     return (
-      <Link href={href} prefetch={false} className="block h-full">
+      <Link href={href} className="block h-full">
         {content}
       </Link>
     );

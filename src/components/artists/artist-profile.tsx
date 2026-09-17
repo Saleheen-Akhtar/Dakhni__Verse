@@ -18,7 +18,6 @@ import type { LinkedArtistUser } from '@/lib/auth/artist-login-actions';
 
 interface ArtistProfileProps {
   artist: any;
-  stats: any;
   kpis: any;
   canEdit: boolean;
   canDelete: boolean;
@@ -28,7 +27,6 @@ interface ArtistProfileProps {
 
 export function ArtistProfile({
   artist,
-  stats,
   kpis,
   canEdit,
   canDelete,

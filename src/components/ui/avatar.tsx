@@ -1,4 +1,5 @@
 import * as React from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 export interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -15,6 +16,13 @@ const sizeClasses = {
   xl: "h-16 w-16 text-lg",
 };
 
+const sizePixels = {
+  sm: 32,
+  md: 40,
+  lg: 48,
+  xl: 64,
+};
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -28,6 +36,8 @@ function getInitials(name: string): string {
 function Avatar({ src, alt, fallback, size = "md", className, ...props }: AvatarProps) {
   const [imgError, setImgError] = React.useState(false);
   const initials = fallback ? getInitials(fallback) : "?";
+  const isDataUrl = src?.startsWith('data:');
+  const px = sizePixels[size];
 
   if (src && !imgError) {
     return (
@@ -39,12 +49,23 @@ function Avatar({ src, alt, fallback, size = "md", className, ...props }: Avatar
         )}
         {...props}
       >
-        <img
-          src={src}
-          alt={alt || fallback || "Avatar"}
-          className="aspect-square h-full w-full object-cover"
-          onError={() => setImgError(true)}
-        />
+        {isDataUrl ? (
+          <img
+            src={src}
+            alt={alt || fallback || "Avatar"}
+            className="aspect-square h-full w-full object-cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <Image
+            src={src}
+            alt={alt || fallback || "Avatar"}
+            width={px}
+            height={px}
+            className="aspect-square h-full w-full object-cover"
+            onError={() => setImgError(true)}
+          />
+        )}
       </div>
     );
   }

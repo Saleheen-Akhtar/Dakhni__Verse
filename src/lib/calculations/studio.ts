@@ -23,6 +23,24 @@ export interface StudioKPIs {
 
 export async function getStudioKPIs(dateRange?: DateRange): Promise<StudioKPIs> {
   const supabase = await createClient();
+
+  // 1. Try native database-side RPC aggregation
+  try {
+    const fromStr = dateRange ? dateRange.from.toISOString().split("T")[0] : null;
+    const toStr = dateRange ? dateRange.to.toISOString().split("T")[0] : null;
+
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_studio_kpis_rpc', {
+      p_from: fromStr,
+      p_to: toStr,
+    });
+
+    if (!rpcError && rpcData) {
+      return rpcData as StudioKPIs;
+    }
+  } catch {
+    // Graceful fallback to client query
+  }
+
   let query = supabase.from("sessions").select(
     "session_type, duration_minutes, artist:artists!artist_id(stage_name)"
   );

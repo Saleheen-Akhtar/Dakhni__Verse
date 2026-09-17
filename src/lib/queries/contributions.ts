@@ -79,9 +79,9 @@ export async function getContributionSummary() {
   
   data.forEach(item => {
     const amount = Number(item.amount) || 0;
-    if (item.status === 'confirmed') summary.confirmed += amount;
-    else if (item.status === 'pending') summary.pending += amount;
-    else if (item.status === 'planned') summary.planned += amount;
+    if (item.status === 'Confirmed') summary.confirmed += amount;
+    else if (item.status === 'Pending') summary.pending += amount;
+    else if (item.status === 'Planned') summary.planned += amount;
   });
   
   return summary;

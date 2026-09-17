@@ -234,6 +234,11 @@ export function ArtistReviewClient({
                                 Rejected
                               </Badge>
                             )}
+                            {(artist.duplicate_of_id || artist.dakhni_verse_role === 'Re-Application') && (
+                              <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300 text-[10px] font-bold">
+                                ⚠️ Re-Application
+                              </Badge>
+                            )}
                           </div>
                           {artist.legal_name && (
                             <p className="text-xs text-muted-foreground font-medium">
@@ -259,6 +264,14 @@ export function ArtistReviewClient({
                   </CardHeader>
 
                   <CardContent className="p-5 pt-2 space-y-4">
+                    {(artist.duplicate_of_id || artist.dakhni_verse_role === 'Re-Application') && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-semibold">Re-Application for Existing Artist.</span> Approving will merge submitted updates into their active profile without creating a duplicate artist.
+                        </div>
+                      </div>
+                    )}
                     {/* Music Profile Genres & Languages */}
                     <div className="space-y-2 text-xs">
                       {profile?.genres && profile.genres.length > 0 && (

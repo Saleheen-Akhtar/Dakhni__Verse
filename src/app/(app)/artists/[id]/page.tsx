@@ -1,5 +1,5 @@
 import { getCurrentUserProfile } from '@/lib/auth/helpers';
-import { getArtistById, getArtistStats } from '@/lib/queries/artists';
+import { getArtistById } from '@/lib/queries/artists';
 import { getArtistKPIs } from '@/lib/calculations/artist-kpi';
 import { getLinkedUserForArtist } from '@/lib/auth/artist-login-actions';
 import { notFound } from 'next/navigation';
@@ -20,8 +20,7 @@ export default async function ArtistProfilePage({
     notFound();
   }
 
-  const [stats, kpis, linkedUser] = await Promise.all([
-    getArtistStats(id),
+  const [kpis, linkedUser] = await Promise.all([
     getArtistKPIs(id),
     getLinkedUserForArtist(id),
   ]);
@@ -33,7 +32,6 @@ export default async function ArtistProfilePage({
   return (
     <ArtistProfile 
       artist={artist} 
-      stats={stats} 
       kpis={kpis} 
       canEdit={canEdit}
       canDelete={canDelete}

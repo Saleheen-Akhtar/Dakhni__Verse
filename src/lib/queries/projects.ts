@@ -106,19 +106,8 @@ export async function updateProject(id: string, data: any, userId?: string) {
 
   if (error) throw error;
 
-  // If status changed, record history
-  if (oldProject && oldProject.status !== project.status) {
-    const { error: historyError } = await supabase
-      .from('project_status_history')
-      .insert([{
-        project_id: id,
-        old_status: oldProject.status,
-        new_status: project.status,
-        changed_by: authUser
-      }]);
-      
-    if (historyError) console.error('Error recording status history:', historyError);
-  }
+  // Status history is automatically recorded by the database trigger
+  // log_project_status_change_trigger (see 001_initial_schema.sql)
 
   return project;
 }
