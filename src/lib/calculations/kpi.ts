@@ -203,27 +203,75 @@ export interface DashboardKPIs {
 }
 
 export async function getDashboardKPIs(dateRange?: DateRange): Promise<DashboardKPIs> {
+  const supabase = await createClient();
+
+  let releasesQuery = supabase
+    .from("releases")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "Released");
+
+  let sessionsQuery = supabase
+    .from("sessions")
+    .select("duration_minutes");
+
+  let contributionsQuery = supabase
+    .from("contributions")
+    .select("amount, status");
+
+  let expensesQuery = supabase
+    .from("expenses")
+    .select("amount");
+
+  if (dateRange) {
+    const fromStr = dateRange.from.toISOString().split("T")[0];
+    const toStr = dateRange.to.toISOString().split("T")[0];
+    releasesQuery = releasesQuery.gte("release_date", fromStr).lte("release_date", toStr);
+    sessionsQuery = sessionsQuery.gte("session_date", fromStr).lte("session_date", toStr);
+    contributionsQuery = contributionsQuery.gte("contribution_date", fromStr).lte("contribution_date", toStr);
+    expensesQuery = expensesQuery.gte("expense_date", fromStr).lte("expense_date", toStr);
+  }
+
+  const productionStatuses = new Set(["Production", "Recording", "Editing", "Mixing", "Mastering"]);
+
   const [
-    activeArtists,
-    activeProjects,
-    songsInProduction,
-    songsReleased,
-    studioSessions,
-    studioHours,
-    confirmedContributions,
-    totalExpenses,
-    pendingContributions,
+    artistsRes,
+    projectsRes,
+    releasesRes,
+    sessionsRes,
+    contributionsRes,
+    expensesRes,
   ] = await Promise.all([
-    getActiveArtistCount(),
-    getActiveProjectCount(),
-    getProductionCount(),
-    getReleasedSongCount(dateRange),
-    getSessionCount(dateRange),
-    getStudioHours(dateRange),
-    getConfirmedContributions(dateRange),
-    getTotalExpenses(dateRange),
-    getPendingContributions(),
+    supabase.from("artists").select("*", { count: "exact", head: true }).eq("status", "Active"),
+    supabase.from("projects").select("status"),
+    releasesQuery,
+    sessionsQuery,
+    contributionsQuery,
+    expensesQuery,
   ]);
+
+  const activeArtists = artistsRes.count ?? 0;
+
+  const projectsData = projectsRes.data || [];
+  const activeProjects = projectsData.filter((p) => p.status !== "Released" && p.status !== "Cancelled").length;
+  const songsInProduction = projectsData.filter((p) => productionStatuses.has(p.status)).length;
+
+  const songsReleased = releasesRes.count ?? 0;
+
+  const sessionsData = sessionsRes.data || [];
+  const studioSessions = sessionsData.length;
+  const totalMinutes = sessionsData.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+  const studioHours = Math.round((totalMinutes / 60) * 10) / 10;
+
+  const contributionsData = contributionsRes.data || [];
+  const confirmedContributions = contributionsData
+    .filter((c) => c.status === "Confirmed")
+    .reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  const pendingContributions = contributionsData
+    .filter((c) => c.status === "Pending")
+    .reduce((sum, c) => sum + Number(c.amount || 0), 0);
+
+  const expensesData = expensesRes.data || [];
+  const totalExpenses = expensesData.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
   const availableFunds = confirmedContributions - totalExpenses;
 
