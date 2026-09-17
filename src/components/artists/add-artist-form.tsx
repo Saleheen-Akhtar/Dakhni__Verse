@@ -132,9 +132,6 @@ export function AddArtistForm() {
     try {
       const dataToSubmit = { ...formData };
       const response = await createArtist(dataToSubmit);
-      if (response?.error) {
-        throw new Error(response.error);
-      }
       toast({ title: 'Success', description: 'Artist created successfully', variant: 'success' });
       router.push(`/artists/${response?.id}`);
     } catch (error: any) {
