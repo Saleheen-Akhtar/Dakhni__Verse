@@ -13,6 +13,8 @@ interface ArtistDirectoryProps {
   userRole?: string;
   initialSearch?: string;
   initialStatus?: string;
+  currentPage?: number;
+  pageSize?: number;
 }
 
 export function ArtistDirectory({
@@ -20,30 +22,26 @@ export function ArtistDirectory({
   userRole,
   initialSearch = '',
   initialStatus = 'All',
+  currentPage = 1,
+  pageSize = 48,
 }: ArtistDirectoryProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
 
-  const updateUrl = (search: string, status: string) => {
+  const updateUrl = (search: string, status: string, page: number = 1) => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (status && status !== 'All') params.set('status', status);
+    if (page > 1) params.set('page', String(page));
     const qs = params.toString();
     router.push(`/artists${qs ? `?${qs}` : ''}`);
   };
 
   const handleStatusChange = (status: string) => {
     setStatusFilter(status);
-    updateUrl(searchQuery, status);
+    updateUrl(searchQuery, status, 1);
   };
-
-  const filteredArtists = artists.filter((artist) => {
-    const matchesSearch = artist.stage_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          artist.legal_name?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || artist.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
 
   const statuses = ['All', ...ARTIST_STATUSES];
 
@@ -75,12 +73,40 @@ export function ArtistDirectory({
         </div>
       </div>
 
-      {filteredArtists.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredArtists.map(artist => (
-            <ArtistCard key={artist.id} artist={artist} onClick={() => router.push(`/artists/${artist.id}`)} />
-          ))}
-        </div>
+      {artists.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {artists.map(artist => (
+              <ArtistCard key={artist.id} artist={artist} onClick={() => router.push(`/artists/${artist.id}`)} />
+            ))}
+          </div>
+
+          {(currentPage > 1 || artists.length >= pageSize) && (
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <span className="text-xs text-muted-foreground">
+                Page {currentPage}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => updateUrl(searchQuery, statusFilter, currentPage - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={artists.length < pageSize}
+                  onClick={() => updateUrl(searchQuery, statusFilter, currentPage + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <EmptyState 
           title="No artists yet" 

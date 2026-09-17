@@ -12,45 +12,39 @@ interface EquipmentListProps {
   equipment: any[];
   initialSearch?: string;
   initialOwnerType?: string;
+  currentPage?: number;
+  pageSize?: number;
 }
 
-export function EquipmentList({ 
+export function EquipmentList({
   equipment,
   initialSearch = '',
   initialOwnerType = 'all',
+  currentPage = 1,
+  pageSize = 50,
 }: EquipmentListProps) {
   const router = useRouter();
   const [search, setSearch] = useState(initialSearch);
   const [ownerFilter, setOwnerFilter] = useState(initialOwnerType);
 
-  const updateFilters = (newSearch: string, newOwner: string) => {
+  const updateFilters = (newSearch: string, newOwner: string, newPage: number = 1) => {
     const params = new URLSearchParams();
     if (newSearch) params.set('search', newSearch);
     if (newOwner && newOwner !== 'all') params.set('owner_type', newOwner);
+    if (newPage > 1) params.set('page', String(newPage));
     const qs = params.toString();
     router.push(`/equipment${qs ? `?${qs}` : ''}`);
   };
 
   const handleSearchChange = (val: string) => {
     setSearch(val);
-    updateFilters(val, ownerFilter);
+    updateFilters(val, ownerFilter, 1);
   };
 
   const handleOwnerChange = (val: string) => {
     setOwnerFilter(val);
-    updateFilters(search, val);
+    updateFilters(search, val, 1);
   };
-
-  const filtered = equipment.filter(e => {
-    if (ownerFilter !== 'all' && e.owner_type !== ownerFilter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      const matchName = e.name?.toLowerCase().includes(q);
-      const matchBrand = e.brand?.toLowerCase().includes(q);
-      if (!matchName && !matchBrand) return false;
-    }
-    return true;
-  });
 
   const columns = [
     { header: 'Name', accessorKey: 'name' },
@@ -88,10 +82,18 @@ export function EquipmentList({
         </Select>
       </div>
 
-      {filtered.length === 0 ? (
+      {equipment.length === 0 ? (
         <EmptyState title="No equipment recorded" description="Add studio equipment to track inventory." />
       ) : (
-        <DataTable columns={columns} data={filtered} />
+        <DataTable 
+          columns={columns} 
+          data={equipment} 
+          serverPagination={{
+            currentPage,
+            pageSize,
+            onPageChange: (newPage) => updateFilters(search, ownerFilter, newPage),
+          }}
+        />
       )}
     </div>
   );

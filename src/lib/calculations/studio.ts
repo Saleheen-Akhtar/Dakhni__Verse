@@ -21,8 +21,11 @@ export interface StudioKPIs {
   sessionsByArtist: Array<{ artist_name: string; count: number }>;
 }
 
+import { measureQuery } from "@/lib/telemetry/perf";
+
 export async function getStudioKPIs(dateRange?: DateRange): Promise<StudioKPIs> {
-  const supabase = await createClient();
+  return measureQuery("getStudioKPIs", async () => {
+    const supabase = await createClient();
 
   // 1. Try native database-side RPC aggregation
   try {
@@ -88,17 +91,18 @@ export async function getStudioKPIs(dateRange?: DateRange): Promise<StudioKPIs> 
     .map(([artist_name, count]) => ({ artist_name, count }))
     .sort((a, b) => b.count - a.count);
 
-  return {
-    totalSessions: sessions.length,
-    recordingSessions: typeCount("Recording"),
-    productionSessions: typeCount("Production"),
-    editingSessions: typeCount("Editing"),
-    mixingSessions: typeCount("Mixing"),
-    masteringSessions: typeCount("Mastering"),
-    rehearsalSessions: typeCount("Rehearsal"),
-    totalHours: Math.round((totalMinutes / 60) * 10) / 10,
-    averageDurationMinutes:
-      sessions.length > 0 ? Math.round(totalMinutes / sessions.length) : 0,
-    sessionsByArtist,
-  };
+    return {
+      totalSessions: sessions.length,
+      recordingSessions: typeCount("Recording"),
+      productionSessions: typeCount("Production"),
+      editingSessions: typeCount("Editing"),
+      mixingSessions: typeCount("Mixing"),
+      masteringSessions: typeCount("Mastering"),
+      rehearsalSessions: typeCount("Rehearsal"),
+      totalHours: Math.round((totalMinutes / 60) * 10) / 10,
+      averageDurationMinutes:
+        sessions.length > 0 ? Math.round(totalMinutes / sessions.length) : 0,
+      sessionsByArtist,
+    };
+  });
 }

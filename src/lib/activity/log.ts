@@ -25,19 +25,23 @@ export async function logActivity(
   });
 }
 
+import { measureQuery } from "@/lib/telemetry/perf";
+
 export async function getRecentActivity(limit: number = 20) {
-  const supabase = await createClient();
+  return measureQuery("getRecentActivity", async () => {
+    const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("activity_logs")
-    .select("*, user:users!user_id(name)")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    const { data, error } = await supabase
+      .from("activity_logs")
+      .select("*, user:users!user_id(name)")
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-  if (error) {
-    console.error("Error fetching activity:", error);
-    return [];
-  }
+    if (error) {
+      console.error("Error fetching activity:", error);
+      return [];
+    }
 
-  return data || [];
+    return data || [];
+  });
 }

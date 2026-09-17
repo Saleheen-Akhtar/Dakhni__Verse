@@ -35,6 +35,7 @@ export default async function EquipmentPage({
         equipment={equipment} 
         initialSearch={params?.search || ''}
         initialOwnerType={params?.owner_type || 'all'}
+        currentPage={params?.page ? Number(params.page) : 1}
       />
     </div>
   );

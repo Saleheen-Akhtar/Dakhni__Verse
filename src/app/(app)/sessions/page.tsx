@@ -43,6 +43,7 @@ export default async function SessionsPage({
         initialType={params?.session_type || 'all'}
         initialFrom={params?.from || ''}
         initialTo={params?.to || ''}
+        currentPage={params?.page ? Number(params.page) : 1}
       />
     </div>
   );

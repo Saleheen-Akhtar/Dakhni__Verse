@@ -27,6 +27,8 @@ export function FinancePage({
   expenses,
   artists,
   initialTab = 'contributions',
+  currentPage = 1,
+  pageSize = 50,
 }: {
   summaries: {
     confirmedContributions: number;
@@ -38,6 +40,8 @@ export function FinancePage({
   expenses: any[];
   artists: any[];
   initialTab?: string;
+  currentPage?: number;
+  pageSize?: number;
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -48,6 +52,17 @@ export function FinancePage({
     setActiveTab(newTab);
     const params = new URLSearchParams(window.location.search);
     params.set('tab', newTab);
+    params.delete('page');
+    router.push(`/finance?${params.toString()}`);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(window.location.search);
+    if (newPage > 1) {
+      params.set('page', String(newPage));
+    } else {
+      params.delete('page');
+    }
     router.push(`/finance?${params.toString()}`);
   };
 
@@ -178,7 +193,15 @@ export function FinancePage({
           {contributions.length === 0 ? (
             <EmptyState title="No contributions recorded" description="Add contributions to track incoming funds." />
           ) : (
-            <DataTable columns={contribColumns} data={contributions} />
+            <DataTable 
+              columns={contribColumns} 
+              data={contributions} 
+              serverPagination={{
+                currentPage: currentPage || 1,
+                pageSize: pageSize || 50,
+                onPageChange: handlePageChange,
+              }}
+            />
           )}
         </TabsContent>
 
@@ -219,7 +242,15 @@ export function FinancePage({
           {expenses.length === 0 ? (
             <EmptyState title="No expenses recorded" description="Add expenses to track studio costs." />
           ) : (
-            <DataTable columns={expenseColumns} data={expenses} />
+            <DataTable 
+              columns={expenseColumns} 
+              data={expenses} 
+              serverPagination={{
+                currentPage: currentPage || 1,
+                pageSize: pageSize || 50,
+                onPageChange: handlePageChange,
+              }}
+            />
           )}
         </TabsContent>
       </Tabs>

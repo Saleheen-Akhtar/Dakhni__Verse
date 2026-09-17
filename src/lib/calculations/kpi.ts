@@ -202,8 +202,11 @@ export interface DashboardKPIs {
   pendingContributions: number;
 }
 
+import { measureQuery } from "@/lib/telemetry/perf";
+
 export async function getDashboardKPIs(dateRange?: DateRange): Promise<DashboardKPIs> {
-  const supabase = await createClient();
+  return measureQuery("getDashboardKPIs", async () => {
+    const supabase = await createClient();
 
   // 1. Try native database-side RPC aggregation (fastest, single roundtrip)
   try {
@@ -322,16 +325,17 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
 
   const availableFunds = confirmedContributions - totalExpenses;
 
-  return {
-    activeArtists,
-    activeProjects,
-    songsInProduction,
-    songsReleased,
-    studioSessions,
-    studioHours,
-    confirmedContributions,
-    totalExpenses,
-    availableFunds,
-    pendingContributions,
-  };
+    return {
+      activeArtists,
+      activeProjects,
+      songsInProduction,
+      songsReleased,
+      studioSessions,
+      studioHours,
+      confirmedContributions,
+      totalExpenses,
+      availableFunds,
+      pendingContributions,
+    };
+  });
 }

@@ -56,6 +56,7 @@ export default async function ArtistsPage({
         userRole={profile?.role}
         initialSearch={params?.search || ''}
         initialStatus={params?.status || 'All'}
+        currentPage={params?.page ? Number(params.page) : 1}
       />
     </div>
   );

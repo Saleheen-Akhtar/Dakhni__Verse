@@ -44,6 +44,7 @@ export default async function ProjectsPage({
         initialSearch={params?.search || ''}
         initialStatus={params?.status || 'all'}
         initialArtist={params?.artist_id || 'all'}
+        currentPage={params?.page ? Number(params.page) : 1}
       />
     </div>
   );

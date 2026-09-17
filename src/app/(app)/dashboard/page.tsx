@@ -40,21 +40,11 @@ export default async function DashboardPage({
     : new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   const dateRange = { from: startOfMonth, to: endOfMonth };
-  const fromStr = dateRange.from.toISOString().split("T")[0];
-  const toStr = dateRange.to.toISOString().split("T")[0];
 
-  const [profile, kpis, studioKpis, recentActivity, expenseSummary] = await Promise.all([
+  const [profile, kpis] = await Promise.all([
     getCurrentUserProfile(),
     getDashboardKPIs(dateRange),
-    getStudioKPIs(dateRange),
-    getRecentActivity(15),
-    getExpenseSummary(fromStr, toStr),
   ]);
-
-  const initialExpenseData = Object.entries(expenseSummary.byCategory || {})
-    .filter(([_, value]) => value > 0)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
 
   const userRole = profile?.role || "Artist";
 
@@ -161,7 +151,7 @@ export default async function DashboardPage({
         </CardContent>
       </Card>
 
-      {/* Charts Row - Suspense Boundary around Client Recharts */}
+      {/* Charts Row - Independent RSC Streaming Boundaries */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Studio Activity */}
         <Card>
@@ -170,7 +160,7 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent>
             <Suspense fallback={<div className="h-64 w-full animate-pulse bg-muted rounded-lg" />}>
-              <StudioActivityChart studioKpis={studioKpis} />
+              <AsyncStudioActivitySection dateRange={dateRange} />
             </Suspense>
           </CardContent>
         </Card>
@@ -182,7 +172,7 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent>
             <Suspense fallback={<div className="h-64 w-full animate-pulse bg-muted rounded-lg" />}>
-              <ExpenseBreakdownChart data={initialExpenseData} />
+              <AsyncExpenseBreakdownSection dateRange={dateRange} />
             </Suspense>
           </CardContent>
         </Card>
@@ -193,7 +183,7 @@ export default async function DashboardPage({
         <ProductionSummary />
       ) : null}
 
-      {/* Recent Activity (Server Rendered) */}
+      {/* Recent Activity (Streamed) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
@@ -202,9 +192,42 @@ export default async function DashboardPage({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <RecentActivityFeed activities={recentActivity} />
+          <Suspense fallback={<div className="h-48 w-full animate-pulse bg-muted rounded-lg" />}>
+            <AsyncRecentActivitySection />
+          </Suspense>
         </CardContent>
       </Card>
     </div>
   );
+}
+
+async function AsyncStudioActivitySection({
+  dateRange,
+}: {
+  dateRange: { from: Date; to: Date };
+}) {
+  const studioKpis = await getStudioKPIs(dateRange);
+  return <StudioActivityChart studioKpis={studioKpis} />;
+}
+
+async function AsyncExpenseBreakdownSection({
+  dateRange,
+}: {
+  dateRange: { from: Date; to: Date };
+}) {
+  const fromStr = dateRange.from.toISOString().split("T")[0];
+  const toStr = dateRange.to.toISOString().split("T")[0];
+  const expenseSummary = await getExpenseSummary(fromStr, toStr);
+
+  const initialExpenseData = Object.entries(expenseSummary.byCategory || {})
+    .filter(([_, value]) => value > 0)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  return <ExpenseBreakdownChart data={initialExpenseData} />;
+}
+
+async function AsyncRecentActivitySection() {
+  const recentActivity = await getRecentActivity(15);
+  return <RecentActivityFeed activities={recentActivity} />;
 }

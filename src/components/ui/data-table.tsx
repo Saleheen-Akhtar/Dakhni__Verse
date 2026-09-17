@@ -16,6 +16,13 @@ export interface Column<T = any> {
   className?: string;
 }
 
+export interface ServerPaginationConfig {
+  totalCount?: number;
+  currentPage: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}
+
 export interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
@@ -24,6 +31,7 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   className?: string;
   pageSize?: number;
+  serverPagination?: ServerPaginationConfig;
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -34,11 +42,12 @@ export function DataTable<T extends Record<string, any>>({
   onRowClick,
   className,
   pageSize = 15,
+  serverPagination,
 }: DataTableProps<T>) {
-  const [currentPage, setCurrentPage] = React.useState(1);
+  const [clientPage, setClientPage] = React.useState(1);
 
   React.useEffect(() => {
-    setCurrentPage(1);
+    setClientPage(1);
   }, [data.length]);
 
   if (loading) {
@@ -60,11 +69,25 @@ export function DataTable<T extends Record<string, any>>({
     return null;
   }
 
-  const isPaginated = pageSize > 0 && data.length > pageSize;
-  const totalPages = isPaginated ? Math.ceil(data.length / pageSize) : 1;
-  const startIndex = isPaginated ? (currentPage - 1) * pageSize : 0;
-  const endIndex = isPaginated ? Math.min(startIndex + pageSize, data.length) : data.length;
-  const visibleData = isPaginated ? data.slice(startIndex, endIndex) : data;
+  // Server vs Client Pagination
+  const isServer = Boolean(serverPagination);
+  const currentPage = isServer ? serverPagination!.currentPage : clientPage;
+  const effectivePageSize = isServer ? serverPagination!.pageSize : pageSize;
+  const totalCount = isServer 
+    ? (serverPagination!.totalCount !== undefined ? serverPagination!.totalCount : data.length)
+    : data.length;
+
+  const isPaginated = isServer
+    ? (totalCount > effectivePageSize || currentPage > 1)
+    : (effectivePageSize > 0 && data.length > effectivePageSize);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / effectivePageSize));
+  const startIndex = (currentPage - 1) * effectivePageSize;
+  const endIndex = isServer
+    ? startIndex + data.length
+    : (isPaginated ? Math.min(startIndex + effectivePageSize, data.length) : data.length);
+
+  const visibleData = isServer ? data : (isPaginated ? data.slice(startIndex, endIndex) : data);
 
   const renderCell = (col: Column<T>, row: T) => {
     if (col.cell) {
@@ -168,9 +191,9 @@ export function DataTable<T extends Record<string, any>>({
       {/* Pagination Footer */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-border bg-dv-gray-light/40 text-xs text-muted-foreground">
         <div>
-          Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to{" "}
+          Showing <span className="font-semibold text-foreground">{data.length > 0 ? startIndex + 1 : 0}</span> to{" "}
           <span className="font-semibold text-foreground">{endIndex}</span> of{" "}
-          <span className="font-semibold text-foreground">{data.length}</span> entries
+          <span className="font-semibold text-foreground">{totalCount}</span> entries
         </div>
 
         {isPaginated && (
@@ -180,7 +203,13 @@ export function DataTable<T extends Record<string, any>>({
               size="sm"
               className="h-8 px-2.5 text-xs"
               disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onClick={() => {
+                if (isServer) {
+                  serverPagination!.onPageChange(Math.max(1, currentPage - 1));
+                } else {
+                  setClientPage((p) => Math.max(1, p - 1));
+                }
+              }}
             >
               <ChevronLeft className="h-3.5 w-3.5 mr-1" />
               Previous
@@ -192,8 +221,14 @@ export function DataTable<T extends Record<string, any>>({
               variant="outline"
               size="sm"
               className="h-8 px-2.5 text-xs"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={isServer ? (serverPagination!.totalCount !== undefined ? currentPage >= totalPages : data.length < effectivePageSize) : currentPage >= totalPages}
+              onClick={() => {
+                if (isServer) {
+                  serverPagination!.onPageChange(currentPage + 1);
+                } else {
+                  setClientPage((p) => Math.min(totalPages, p + 1));
+                }
+              }}
             >
               Next
               <ChevronRight className="h-3.5 w-3.5 ml-1" />

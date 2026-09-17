@@ -69,27 +69,31 @@ export async function deleteExpense(id: string) {
   return true;
 }
 
+import { measureQuery } from '@/lib/telemetry/perf';
+
 export async function getExpenseSummary(from?: string, to?: string) {
-  const supabase = await createClient();
-  let query = supabase.from('expenses').select('amount, category');
-  
-  if (from) query = query.gte('expense_date', from);
-  if (to) query = query.lte('expense_date', to);
-  
-  const { data, error } = await query;
-  
-  const summary = { total: 0, byCategory: {} as Record<string, number> };
-  
-  if (error || !data) {
-    console.error('Error fetching expense summary:', error);
+  return measureQuery('getExpenseSummary', async () => {
+    const supabase = await createClient();
+    let query = supabase.from('expenses').select('amount, category');
+    
+    if (from) query = query.gte('expense_date', from);
+    if (to) query = query.lte('expense_date', to);
+    
+    const { data, error } = await query;
+    
+    const summary = { total: 0, byCategory: {} as Record<string, number> };
+    
+    if (error || !data) {
+      console.error('Error fetching expense summary:', error);
+      return summary;
+    }
+    
+    data.forEach(item => {
+      const amount = Number(item.amount) || 0;
+      summary.total += amount;
+      summary.byCategory[item.category] = (summary.byCategory[item.category] || 0) + amount;
+    });
+    
     return summary;
-  }
-  
-  data.forEach(item => {
-    const amount = Number(item.amount) || 0;
-    summary.total += amount;
-    summary.byCategory[item.category] = (summary.byCategory[item.category] || 0) + amount;
   });
-  
-  return summary;
 }

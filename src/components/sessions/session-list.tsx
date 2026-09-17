@@ -15,6 +15,8 @@ interface SessionListProps {
   initialType?: string;
   initialFrom?: string;
   initialTo?: string;
+  currentPage?: number;
+  pageSize?: number;
 }
 
 export function SessionList({
@@ -24,6 +26,8 @@ export function SessionList({
   initialType = 'all',
   initialFrom = '',
   initialTo = '',
+  currentPage = 1,
+  pageSize = 50,
 }: SessionListProps) {
   const router = useRouter();
   const [artistFilter, setArtistFilter] = useState(initialArtist);
@@ -31,44 +35,36 @@ export function SessionList({
   const [dateFrom, setDateFrom] = useState(initialFrom);
   const [dateTo, setDateTo] = useState(initialTo);
 
-  const updateFilters = (newArtist: string, newType: string, newFrom: string, newTo: string) => {
+  const updateFilters = (newArtist: string, newType: string, newFrom: string, newTo: string, newPage: number = 1) => {
     const params = new URLSearchParams();
     if (newArtist && newArtist !== 'all') params.set('artist_id', newArtist);
     if (newType && newType !== 'all') params.set('session_type', newType);
     if (newFrom) params.set('from', newFrom);
     if (newTo) params.set('to', newTo);
+    if (newPage > 1) params.set('page', String(newPage));
     const qs = params.toString();
     router.push(`/sessions${qs ? `?${qs}` : ''}`);
   };
 
   const handleArtistChange = (val: string) => {
     setArtistFilter(val);
-    updateFilters(val, typeFilter, dateFrom, dateTo);
+    updateFilters(val, typeFilter, dateFrom, dateTo, 1);
   };
 
   const handleTypeChange = (val: string) => {
     setTypeFilter(val);
-    updateFilters(artistFilter, val, dateFrom, dateTo);
+    updateFilters(artistFilter, val, dateFrom, dateTo, 1);
   };
 
   const handleFromChange = (val: string) => {
     setDateFrom(val);
-    updateFilters(artistFilter, typeFilter, val, dateTo);
+    updateFilters(artistFilter, typeFilter, val, dateTo, 1);
   };
 
   const handleToChange = (val: string) => {
     setDateTo(val);
-    updateFilters(artistFilter, typeFilter, dateFrom, val);
+    updateFilters(artistFilter, typeFilter, dateFrom, val, 1);
   };
-
-  const filtered = sessions.filter(s => {
-    const sDate = s.session_date || s.date;
-    if (artistFilter !== 'all' && s.artist_id !== artistFilter) return false;
-    if (typeFilter !== 'all' && s.session_type !== typeFilter) return false;
-    if (dateFrom && sDate && sDate < dateFrom) return false;
-    if (dateTo && sDate && sDate > dateTo) return false;
-    return true;
-  });
 
   const columns = [
     { 
@@ -135,10 +131,18 @@ export function SessionList({
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {sessions.length === 0 ? (
         <EmptyState title="No sessions recorded" description="Studio activity matching your filters will appear here." />
       ) : (
-        <DataTable columns={columns} data={filtered} />
+        <DataTable 
+          columns={columns} 
+          data={sessions} 
+          serverPagination={{
+            currentPage,
+            pageSize,
+            onPageChange: (newPage) => updateFilters(artistFilter, typeFilter, dateFrom, dateTo, newPage),
+          }}
+        />
       )}
     </div>
   );

@@ -33,6 +33,7 @@ export default async function FinanceRoute({
         expenses={expenses} 
         artists={artists} 
         initialTab={params?.tab || 'contributions'}
+        currentPage={params?.page ? Number(params.page) : 1}
       />
     </div>
   );

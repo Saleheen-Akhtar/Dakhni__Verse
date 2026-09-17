@@ -14,6 +14,8 @@ interface ProjectListProps {
   initialSearch?: string;
   initialStatus?: string;
   initialArtist?: string;
+  currentPage?: number;
+  pageSize?: number;
 }
 
 export function ProjectList({
@@ -22,42 +24,38 @@ export function ProjectList({
   initialSearch = '',
   initialStatus = 'all',
   initialArtist = 'all',
+  currentPage = 1,
+  pageSize = 50,
 }: ProjectListProps) {
   const router = useRouter();
   const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [artistFilter, setArtistFilter] = useState(initialArtist);
 
-  const updateFilters = (newSearch: string, newStatus: string, newArtist: string) => {
+  const updateFilters = (newSearch: string, newStatus: string, newArtist: string, newPage: number = 1) => {
     const params = new URLSearchParams();
     if (newSearch) params.set('search', newSearch);
     if (newStatus && newStatus !== 'all') params.set('status', newStatus);
     if (newArtist && newArtist !== 'all') params.set('artist_id', newArtist);
+    if (newPage > 1) params.set('page', String(newPage));
     const qs = params.toString();
     router.push(`/projects${qs ? `?${qs}` : ''}`);
   };
 
   const handleSearchChange = (val: string) => {
     setSearch(val);
-    updateFilters(val, statusFilter, artistFilter);
+    updateFilters(val, statusFilter, artistFilter, 1);
   };
 
   const handleStatusChange = (val: string) => {
     setStatusFilter(val);
-    updateFilters(search, val, artistFilter);
+    updateFilters(search, val, artistFilter, 1);
   };
 
   const handleArtistChange = (val: string) => {
     setArtistFilter(val);
-    updateFilters(search, statusFilter, val);
+    updateFilters(search, statusFilter, val, 1);
   };
-
-  const filtered = projects.filter(p => {
-    if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
-    if (statusFilter !== 'all' && p.status !== statusFilter) return false;
-    if (artistFilter !== 'all' && p.artist_id !== artistFilter) return false;
-    return true;
-  });
 
   const getStatusVariant = (status: string): any => {
     switch (status) {
@@ -134,13 +132,18 @@ export function ProjectList({
         </Select>
       </div>
 
-      {filtered.length === 0 ? (
+      {projects.length === 0 ? (
         <EmptyState title="No projects yet" description="Create a project to begin tracking music." />
       ) : (
         <DataTable 
           columns={columns} 
-          data={filtered} 
+          data={projects} 
           onRowClick={(row) => router.push(`/projects/${row.id}`)}
+          serverPagination={{
+            currentPage,
+            pageSize,
+            onPageChange: (newPage) => updateFilters(search, statusFilter, artistFilter, newPage),
+          }}
         />
       )}
     </div>

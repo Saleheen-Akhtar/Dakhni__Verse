@@ -2,9 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
 import { headers } from 'next/headers';
 import { checkRateLimit } from '@/lib/security/rate-limit';
+import { measureQuery } from '@/lib/telemetry/perf';
 import type { Artist, ArtistWithProfile, ArtistSocialLink, ArtistMusicProfile } from '@/types';
 
 function getAdminSupabase() {
@@ -89,20 +90,26 @@ export async function getArtistById(id: string) {
   };
 }
 
-export async function getArtistOptions() {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('artists')
-    .select('id, stage_name')
-    .eq('status', 'Active')
-    .order('stage_name', { ascending: true });
+export const getArtistOptions = unstable_cache(
+  async () => {
+    return measureQuery('getArtistOptions', async () => {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from('artists')
+        .select('id, stage_name')
+        .eq('status', 'Active')
+        .order('stage_name', { ascending: true });
 
-  if (error) {
-    console.error('Error fetching artist options:', error);
-    return [];
-  }
-  return data;
-}
+      if (error) {
+        console.error('Error fetching artist options:', error);
+        return [];
+      }
+      return data || [];
+    });
+  },
+  ['artist-options'],
+  { revalidate: 300, tags: ['artist-options'] }
+);
 
 export async function createArtist(data: any, musicProfile?: any, socialLinks?: any[]) {
   const supabase = await createClient();
@@ -169,6 +176,7 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
     .single();
 
   if (fetchErr) throw fetchErr;
+  revalidateTag('artist-options');
   return createdArtist;
 }
 
@@ -202,6 +210,7 @@ export async function updateArtist(id: string, data: any) {
     .single();
 
   if (error) throw error;
+  revalidateTag('artist-options');
   return artist;
 }
 
@@ -277,6 +286,7 @@ export async function deleteArtist(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+  revalidateTag('artist-options');
   return true;
 }
 
@@ -602,6 +612,7 @@ export async function acceptArtistApplication(artistId: string) {
   revalidatePath('/artists/review');
   revalidatePath('/dashboard');
   revalidatePath(`/artists/${artistId}`);
+  revalidateTag('artist-options');
 
   return { success: true, stage_name: artist?.stage_name };
 }

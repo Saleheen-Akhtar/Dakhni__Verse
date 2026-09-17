@@ -25,20 +25,24 @@ export async function requireAuth() {
   return user
 }
 
+import { measureQuery } from '@/lib/telemetry/perf'
+
 export const getCurrentUserProfile = cache(async (): Promise<CurrentUser | null> => {
-  const user = await getUser()
-  if (!user) return null
+  return measureQuery('getCurrentUserProfile', async () => {
+    const user = await getUser()
+    if (!user) return null
 
-  const supabase = await createClient()
-  const { data: profile, error } = await supabase
-    .from('users')
-    .select('id, email, name, role, artist_id')
-    .eq('id', user.id)
-    .single()
+    const supabase = await createClient()
+    const { data: profile, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, artist_id')
+      .eq('id', user.id)
+      .single()
 
-  if (error || !profile) return null
+    if (error || !profile) return null
 
-  return profile as CurrentUser
+    return profile as CurrentUser
+  })
 })
 
 export async function requireRole(roles: string[]) {
