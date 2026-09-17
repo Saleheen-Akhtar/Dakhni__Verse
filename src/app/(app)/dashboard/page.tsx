@@ -182,7 +182,7 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent>
             <Suspense fallback={<div className="h-64 w-full animate-pulse bg-muted rounded-lg" />}>
-              <ExpenseBreakdownChart initialData={initialExpenseData} dateRange={dateRange} />
+              <ExpenseBreakdownChart data={initialExpenseData} />
             </Suspense>
           </CardContent>
         </Card>

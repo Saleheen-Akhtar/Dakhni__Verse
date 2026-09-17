@@ -470,6 +470,20 @@ export function PublicArtistForm() {
               </div>
             </div>
 
+            {/* Anti-bot honeypot trap field (hidden from legitimate humans) */}
+            <div className="hidden" style={{ display: 'none' }} aria-hidden="true">
+              <label htmlFor="website_hp">Leave this field blank</label>
+              <input
+                id="website_hp"
+                name="website_hp"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={formData.website_hp || ''}
+                onChange={handleInputChange}
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               <div className="space-y-1.5">
                 <Label htmlFor="email" className="text-neutral-900 font-medium">

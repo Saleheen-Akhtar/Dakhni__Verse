@@ -20,7 +20,7 @@ function getAdminSupabase() {
 
 export async function getArtists(filters?: { status?: string; role?: string; search?: string; page?: number; pageSize?: number }) {
   const supabase = await createClient();
-  let query = supabase.from('artists').select('*');
+  let query = supabase.from('artists').select('id, stage_name, legal_name, profile_image_url, location, status, dakhni_verse_role, date_joined');
 
   if (filters?.status && filters.status !== 'All') {
     query = query.eq('status', filters.status);
@@ -147,66 +147,29 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
         }))
     : [];
 
-  // 1. Execute atomic PostgreSQL RPC procedure
+  // Execute atomic PostgreSQL RPC procedure (Single Source of Truth)
   const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_artist_transactional', {
     p_artist_data: artistData,
     p_profile_data: musicProfileData,
     p_social_links: normalizedLinks,
   });
 
-  if (!rpcErr && rpcRes?.artist_id) {
-    const { data: createdArtist, error: fetchErr } = await supabase
-      .from('artists')
-      .select('*')
-      .eq('id', rpcRes.artist_id)
-      .single();
-    if (fetchErr) throw fetchErr;
-    return createdArtist;
-  }
-
-  // Fail-closed if RPC threw an operational or constraint error
-  if (rpcErr && rpcErr.code !== '42883' && rpcErr.code !== 'PGRST202') {
+  if (rpcErr) {
     throw new Error(`Failed to create artist transactionally: ${rpcErr.message}`);
   }
 
-  // 2. Sequential fallback with rollback on failure
-  const { data: artist, error: artistError } = await supabase
-    .from('artists')
-    .insert([artistData])
-    .select()
-    .single();
-
-  if (artistError) throw artistError;
-
-  try {
-    musicProfileData.artist_id = artist.id;
-    const { error: profileError } = await supabase
-      .from('artist_music_profiles')
-      .insert([musicProfileData]);
-      
-    if (profileError) {
-      console.error('Error creating music profile, rolling back artist:', profileError);
-      await supabase.from('artists').delete().eq('id', artist.id);
-      throw profileError;
-    }
-
-    if (normalizedLinks.length > 0) {
-      const linksToInsert = normalizedLinks.map((l: any) => ({ ...l, artist_id: artist.id }));
-      const { error: linksError } = await supabase
-        .from('artist_social_links')
-        .insert(linksToInsert);
-        
-      if (linksError) {
-        console.error('Error creating social links, rolling back artist:', linksError);
-        await supabase.from('artists').delete().eq('id', artist.id);
-        throw linksError;
-      }
-    }
-  } catch (nestedErr) {
-    throw nestedErr;
+  if (!rpcRes?.artist_id) {
+    throw new Error('Artist creation did not return a valid identifier');
   }
 
-  return artist;
+  const { data: createdArtist, error: fetchErr } = await supabase
+    .from('artists')
+    .select('*')
+    .eq('id', rpcRes.artist_id)
+    .single();
+
+  if (fetchErr) throw fetchErr;
+  return createdArtist;
 }
 
 export async function updateArtist(id: string, data: any) {
@@ -291,34 +254,14 @@ export async function updateArtistSocialLinks(artistId: string, links: Array<{pl
   const supabase = await createClient();
   const validLinks = (links || []).filter(l => l && l.url && l.url.trim() !== '');
 
-  // 1. Try atomic PostgreSQL procedure
+  // Execute atomic PostgreSQL procedure (Single Source of Truth)
   const { error: rpcError } = await supabase.rpc('replace_artist_social_links', {
     p_artist_id: artistId,
     p_social_links: validLinks,
   });
 
-  if (!rpcError) return;
-
-  // Fail closed if RPC failed with an operational or constraint error
-  if (rpcError.code !== '42883' && rpcError.code !== 'PGRST202') {
+  if (rpcError) {
     throw new Error(`Failed to update social links transactionally: ${rpcError.message}`);
-  }
-
-  // 2. Sequential fallback
-  const { error: deleteError } = await supabase
-    .from('artist_social_links')
-    .delete()
-    .eq('artist_id', artistId);
-
-  if (deleteError) throw deleteError;
-
-  if (validLinks.length > 0) {
-    const linksToInsert = validLinks.map(link => ({ ...link, artist_id: artistId }));
-    const { error: insertError } = await supabase
-      .from('artist_social_links')
-      .insert(linksToInsert);
-
-    if (insertError) throw insertError;
   }
 }
 
@@ -361,12 +304,25 @@ export async function getArtistStats(artistId: string) {
 }
 
 export async function submitArtistSelfService(data: any): Promise<{ success: boolean; action?: string; artist_id?: string; stage_name?: string; is_reapplication?: boolean; error?: string }> {
+  // 0. Bot Protection: Honeypot trap check
+  if (data?.website_hp || data?.confirm_email_hp) {
+    console.warn('Bot submission blocked via honeypot');
+    return {
+      success: false,
+      error: 'Submission rejected as suspected automated traffic.',
+    };
+  }
+
+  // 1. Security Guard: Rate limiting with strict fail-closed enforcement
   try {
     const reqHeaders = await headers();
     const forwardedFor = reqHeaders.get('x-forwarded-for');
     const realIp = reqHeaders.get('x-real-ip');
-    const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : (realIp || 'anonymous');
+    const rawIp = forwardedFor ? forwardedFor.split(',')[0].trim() : (realIp || null);
     
+    // Sanitize client IP: must be valid IPv4/IPv6 pattern
+    const clientIp = rawIp && /^[a-fA-F0-9.:]+$/.test(rawIp) ? rawIp : 'client';
+
     const rateCheck = checkRateLimit(`submit_artist:${clientIp}`, 5, 10 * 60 * 1000);
     if (!rateCheck.success) {
       return {
@@ -374,8 +330,12 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
         error: 'Too many submissions from this connection. Please wait 10 minutes before trying again.',
       };
     }
-  } catch {
-    // If headers() is unavailable in certain environments, continue
+  } catch (rateLimitErr) {
+    console.error('Rate limiting failure (failing closed):', rateLimitErr);
+    return {
+      success: false,
+      error: 'Security verification failed. Please try again in a few moments.',
+    };
   }
 
   const adminClient = getAdminSupabase();

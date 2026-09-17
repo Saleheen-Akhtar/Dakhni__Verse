@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import {
   PieChart,
   Pie,
@@ -13,8 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency } from "@/lib/utils/format";
 
 interface ExpenseBreakdownChartProps {
-  dateRange: { from: Date; to: Date };
-  initialData?: Array<{ name: string; value: number }>;
+  data?: Array<{ name: string; value: number }>;
 }
 
 const COLORS = [
@@ -30,57 +28,14 @@ const COLORS = [
   "#DDDDDD",
 ];
 
-export function ExpenseBreakdownChart({ dateRange, initialData }: ExpenseBreakdownChartProps) {
-  const [mounted, setMounted] = useState(false);
-  const [data, setData] = useState<Array<{ name: string; value: number }>>(initialData || []);
-  const [loading, setLoading] = useState(!initialData);
-
-  useEffect(() => {
-    setMounted(true);
-    if (initialData) {
-      setData(initialData);
-      setLoading(false);
-      return;
-    }
-    loadData();
-  }, [dateRange, initialData]);
-
-  async function loadData() {
-    setLoading(true);
-    try {
-      const { getExpenseSummary } = await import("@/lib/queries/expenses");
-      const summary = await getExpenseSummary(
-        dateRange.from.toISOString().split("T")[0],
-        dateRange.to.toISOString().split("T")[0]
-      );
-      const chartData = Object.entries(summary.byCategory)
-        .filter(([_, value]) => value > 0)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
-      setData(chartData);
-    } catch (error) {
-      console.error("Error loading expense data:", error);
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (loading) {
-    return <div className="h-64 w-full animate-pulse bg-muted rounded-lg" />;
-  }
-
-  if (data.length === 0) {
+export function ExpenseBreakdownChart({ data = [] }: ExpenseBreakdownChartProps) {
+  if (!data || data.length === 0) {
     return (
       <EmptyState
         title="No data available yet"
         description="Record expenses to see category breakdown."
       />
     );
-  }
-
-  if (!mounted) {
-    return <div className="h-64 w-full animate-pulse bg-muted rounded-lg" />;
   }
 
   return (

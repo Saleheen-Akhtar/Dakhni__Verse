@@ -53,9 +53,10 @@ export function ArtistDirectory({
         <div className="w-full sm:w-96">
           <SearchInput 
             value={searchQuery} 
-            onChange={(e: any) => {
-              const val = typeof e === 'string' ? e : e?.target?.value || '';
-              setSearchQuery(val);
+            onChange={(val: any) => {
+              const strVal = typeof val === 'string' ? val : val?.target?.value || '';
+              setSearchQuery(strVal);
+              updateUrl(strVal, statusFilter);
             }} 
             placeholder="Search artists..." 
           />

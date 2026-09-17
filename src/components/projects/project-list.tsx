@@ -37,6 +37,21 @@ export function ProjectList({
     router.push(`/projects${qs ? `?${qs}` : ''}`);
   };
 
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    updateFilters(val, statusFilter, artistFilter);
+  };
+
+  const handleStatusChange = (val: string) => {
+    setStatusFilter(val);
+    updateFilters(search, val, artistFilter);
+  };
+
+  const handleArtistChange = (val: string) => {
+    setArtistFilter(val);
+    updateFilters(search, statusFilter, val);
+  };
+
   const filtered = projects.filter(p => {
     if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (statusFilter !== 'all' && p.status !== statusFilter) return false;
@@ -64,19 +79,19 @@ export function ProjectList({
       render: (row: any) => row.artist?.stage_name || row.artist?.name || '-'
     },
     { 
-      header: 'Producer', 
-      accessorKey: 'producer.stage_name',
-      render: (row: any) => row.producer?.stage_name || row.producer?.name || '-'
-    },
-    { 
       header: 'Status', 
       accessorKey: 'status',
       cell: ({ row }: any) => <Badge variant={getStatusVariant(row.original.status)}>{row.original.status}</Badge>
     },
     { 
-      header: 'Target Release Date', 
+      header: 'Target Date', 
       accessorKey: 'target_release_date',
       cell: ({ row }: any) => row.original.target_release_date ? formatDate(row.original.target_release_date) : '-'
+    },
+    { 
+      header: 'Producer', 
+      accessorKey: 'producer.stage_name',
+      render: (row: any) => row.producer?.stage_name || row.lead_producer?.stage_name || row.producer?.name || '-'
     }
   ];
 
@@ -86,10 +101,10 @@ export function ProjectList({
         <Input 
           placeholder="Search by title..." 
           value={search} 
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="max-w-sm"
         />
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Statuses" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
@@ -106,7 +121,7 @@ export function ProjectList({
             <SelectItem value="Cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={artistFilter} onValueChange={setArtistFilter}>
+        <Select value={artistFilter} onValueChange={handleArtistChange}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Artists" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Artists</SelectItem>
