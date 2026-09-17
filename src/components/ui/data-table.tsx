@@ -4,7 +4,8 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { TableSkeleton } from "./loading-state";
 import { EmptyState } from "./empty-state";
-import { Inbox } from "lucide-react";
+import { Inbox, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "./button";
 
 export interface Column<T = any> {
   key?: string;
@@ -22,6 +23,7 @@ export interface DataTableProps<T> {
   loading?: boolean;
   onRowClick?: (row: T) => void;
   className?: string;
+  pageSize?: number;
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -31,7 +33,14 @@ export function DataTable<T extends Record<string, any>>({
   loading,
   onRowClick,
   className,
+  pageSize = 15,
 }: DataTableProps<T>) {
+  const [currentPage, setCurrentPage] = React.useState(1);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [data.length]);
+
   if (loading) {
     return <TableSkeleton />;
   }
@@ -51,6 +60,12 @@ export function DataTable<T extends Record<string, any>>({
     return null;
   }
 
+  const isPaginated = pageSize > 0 && data.length > pageSize;
+  const totalPages = isPaginated ? Math.ceil(data.length / pageSize) : 1;
+  const startIndex = isPaginated ? (currentPage - 1) * pageSize : 0;
+  const endIndex = isPaginated ? Math.min(startIndex + pageSize, data.length) : data.length;
+  const visibleData = isPaginated ? data.slice(startIndex, endIndex) : data;
+
   const renderCell = (col: Column<T>, row: T) => {
     if (col.cell) {
       return col.cell({ row: { original: row } });
@@ -65,6 +80,10 @@ export function DataTable<T extends Record<string, any>>({
 
   const getColKey = (col: Column<T>, index: number) => {
     return col.accessorKey || col.key || `col-${index}`;
+  };
+
+  const getRowKey = (row: T, index: number) => {
+    return row.id || row.uuid || row._id || `row-${startIndex + index}`;
   };
 
   return (
@@ -90,9 +109,9 @@ export function DataTable<T extends Record<string, any>>({
             </tr>
           </thead>
           <tbody>
-            {data.map((row, i) => (
+            {visibleData.map((row, i) => (
               <tr
-                key={i}
+                key={getRowKey(row, i)}
                 onClick={() => onRowClick?.(row)}
                 className={cn(
                   "border-b border-border last:border-0 hover:bg-dv-gray-light/60 transition-colors",
@@ -115,9 +134,9 @@ export function DataTable<T extends Record<string, any>>({
 
       {/* Mobile Card View */}
       <div className="md:hidden flex flex-col divide-y divide-border">
-        {data.map((row, i) => (
+        {visibleData.map((row, i) => (
           <div
-            key={i}
+            key={getRowKey(row, i)}
             onClick={() => onRowClick?.(row)}
             className={cn(
               "p-4 flex flex-col gap-2 hover:bg-dv-gray-light/60 transition-colors",
@@ -144,6 +163,43 @@ export function DataTable<T extends Record<string, any>>({
             ))}
           </div>
         ))}
+      </div>
+
+      {/* Pagination Footer */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-border bg-dv-gray-light/40 text-xs text-muted-foreground">
+        <div>
+          Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to{" "}
+          <span className="font-semibold text-foreground">{endIndex}</span> of{" "}
+          <span className="font-semibold text-foreground">{data.length}</span> entries
+        </div>
+
+        {isPaginated && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+              Previous
+            </Button>
+            <span className="px-2 font-medium text-foreground">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

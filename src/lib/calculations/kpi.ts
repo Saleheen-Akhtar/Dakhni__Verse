@@ -33,7 +33,7 @@ export async function getActiveProjectCount(): Promise<number> {
   const { count, error } = await supabase
     .from("projects")
     .select("*", { count: "exact", head: true })
-    .not("status", "in", '("Released","Cancelled")');
+    .not("status", "in", '("Released","On Hold","Cancelled")');
 
   if (error) {
     console.error("Error counting active projects:", error);
@@ -252,7 +252,7 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
   let activeProjectsQuery = supabase
     .from("projects")
     .select("*", { count: "exact", head: true })
-    .not("status", "in", '("Released","Cancelled")');
+    .not("status", "in", '("Released","On Hold","Cancelled")');
 
   let productionQuery = supabase
     .from("projects")

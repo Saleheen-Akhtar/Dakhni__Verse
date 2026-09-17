@@ -35,8 +35,16 @@ export function ProjectList({ projects, artists }: { projects: any[]; artists: a
 
   const columns = [
     { header: 'Title', accessorKey: 'title' },
-    { header: 'Artist', accessorKey: 'artist.name' },
-    { header: 'Producer', accessorKey: 'producer.name' },
+    { 
+      header: 'Artist', 
+      accessorKey: 'artist.stage_name',
+      render: (row: any) => row.artist?.stage_name || row.artist?.name || '-'
+    },
+    { 
+      header: 'Producer', 
+      accessorKey: 'producer.stage_name',
+      render: (row: any) => row.producer?.stage_name || row.producer?.name || '-'
+    },
     { 
       header: 'Status', 
       accessorKey: 'status',
@@ -51,7 +59,7 @@ export function ProjectList({ projects, artists }: { projects: any[]; artists: a
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-4">
         <Input 
           placeholder="Search by title..." 
           value={search} 
@@ -63,17 +71,27 @@ export function ProjectList({ projects, artists }: { projects: any[]; artists: a
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="Idea">Idea</SelectItem>
+            <SelectItem value="Writing">Writing</SelectItem>
             <SelectItem value="Production">Production</SelectItem>
+            <SelectItem value="Recording">Recording</SelectItem>
+            <SelectItem value="Editing">Editing</SelectItem>
             <SelectItem value="Mixing">Mixing</SelectItem>
+            <SelectItem value="Mastering">Mastering</SelectItem>
             <SelectItem value="Ready">Ready</SelectItem>
             <SelectItem value="Released">Released</SelectItem>
+            <SelectItem value="On Hold">On Hold</SelectItem>
+            <SelectItem value="Cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
         <Select value={artistFilter} onValueChange={setArtistFilter}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Artists" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Artists</SelectItem>
-            {artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+            {artists.map(a => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.stage_name || a.name || 'Unknown'}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

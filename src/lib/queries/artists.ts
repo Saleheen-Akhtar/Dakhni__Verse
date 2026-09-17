@@ -102,7 +102,7 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
   
   // Separate core artist table fields
   const artistData: any = {
-    stage_name: data.stage_name,
+    stage_name: (data.stage_name || '').trim(),
     legal_name: data.legal_name || null,
     profile_image_url: data.profile_image_url || null,
     location: data.location || null,
@@ -113,18 +113,9 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
     dakhni_verse_role: data.dakhni_verse_role || null,
   };
 
-  const { data: artist, error: artistError } = await supabase
-    .from('artists')
-    .insert([artistData])
-    .select()
-    .single();
-
-  if (artistError) throw artistError;
-
   // Extract music profile data
   const profileSource = musicProfile || data;
   const musicProfileData: any = {
-    artist_id: artist.id,
     primary_role: profileSource.primary_role || null,
     genres: Array.isArray(profileSource.genres) ? profileSource.genres : (profileSource.genres ? [profileSource.genres] : []),
     subgenres: Array.isArray(profileSource.subgenres) ? profileSource.subgenres : (profileSource.subgenres ? [profileSource.subgenres] : []),
@@ -138,30 +129,72 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
     bio: profileSource.bio || null,
   };
 
-  const { error: profileError } = await supabase
-    .from('artist_music_profiles')
-    .insert([musicProfileData]);
-    
-  if (profileError) console.error('Error creating music profile:', profileError);
-
   // Extract social links
   const linksSource = socialLinks || data.socialLinks || data.social_links || [];
-  if (Array.isArray(linksSource) && linksSource.length > 0) {
-    const linksToInsert = linksSource
-      .filter((link: any) => link.url && link.url.trim() !== '')
-      .map((link: any) => ({
-        artist_id: artist.id,
-        platform: link.platform || 'Other',
-        url: link.url.trim(),
-      }));
+  const normalizedLinks = Array.isArray(linksSource)
+    ? linksSource
+        .filter((link: any) => link.url && link.url.trim() !== '')
+        .map((link: any) => ({
+          platform: link.platform || 'Other',
+          url: link.url.trim(),
+        }))
+    : [];
 
-    if (linksToInsert.length > 0) {
+  // 1. Try atomic PostgreSQL RPC execution
+  try {
+    const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_artist_transactional', {
+      p_artist_data: artistData,
+      p_profile_data: musicProfileData,
+      p_social_links: normalizedLinks,
+    });
+
+    if (!rpcErr && rpcRes?.artist_id) {
+      const { data: createdArtist } = await supabase
+        .from('artists')
+        .select('*')
+        .eq('id', rpcRes.artist_id)
+        .single();
+      if (createdArtist) return createdArtist;
+    }
+  } catch {
+    // Graceful fallback to sequential creation if RPC is not yet executed in Supabase
+  }
+
+  // 2. Sequential fallback with rollback on failure
+  const { data: artist, error: artistError } = await supabase
+    .from('artists')
+    .insert([artistData])
+    .select()
+    .single();
+
+  if (artistError) throw artistError;
+
+  try {
+    musicProfileData.artist_id = artist.id;
+    const { error: profileError } = await supabase
+      .from('artist_music_profiles')
+      .insert([musicProfileData]);
+      
+    if (profileError) {
+      console.error('Error creating music profile, rolling back artist:', profileError);
+      await supabase.from('artists').delete().eq('id', artist.id);
+      throw profileError;
+    }
+
+    if (normalizedLinks.length > 0) {
+      const linksToInsert = normalizedLinks.map((l: any) => ({ ...l, artist_id: artist.id }));
       const { error: linksError } = await supabase
         .from('artist_social_links')
         .insert(linksToInsert);
         
-      if (linksError) console.error('Error creating social links:', linksError);
+      if (linksError) {
+        console.error('Error creating social links, rolling back artist:', linksError);
+        await supabase.from('artists').delete().eq('id', artist.id);
+        throw linksError;
+      }
     }
+  } catch (nestedErr) {
+    throw nestedErr;
   }
 
   return artist;
@@ -247,7 +280,20 @@ export async function saveArtistFull(id: string, artistData: any, musicProfileDa
 
 export async function updateArtistSocialLinks(artistId: string, links: Array<{platform: string; url: string}>) {
   const supabase = await createClient();
-  
+  const validLinks = (links || []).filter(l => l && l.url && l.url.trim() !== '');
+
+  // 1. Try atomic PostgreSQL procedure
+  try {
+    const { error: rpcError } = await supabase.rpc('replace_artist_social_links', {
+      p_artist_id: artistId,
+      p_social_links: validLinks,
+    });
+    if (!rpcError) return;
+  } catch {
+    // Fallback to sequential query
+  }
+
+  // 2. Sequential fallback
   const { error: deleteError } = await supabase
     .from('artist_social_links')
     .delete()
@@ -255,8 +301,8 @@ export async function updateArtistSocialLinks(artistId: string, links: Array<{pl
 
   if (deleteError) throw deleteError;
 
-  if (links && links.length > 0) {
-    const linksToInsert = links.map(link => ({ ...link, artist_id: artistId }));
+  if (validLinks.length > 0) {
+    const linksToInsert = validLinks.map(link => ({ ...link, artist_id: artistId }));
     const { error: insertError } = await supabase
       .from('artist_social_links')
       .insert(linksToInsert);
@@ -303,19 +349,43 @@ export async function getArtistStats(artistId: string) {
   };
 }
 
-export async function submitArtistSelfService(data: any): Promise<{ success: boolean; action?: string; artist_id?: string; stage_name?: string; error?: string }> {
+export async function submitArtistSelfService(data: any): Promise<{ success: boolean; action?: string; artist_id?: string; stage_name?: string; is_reapplication?: boolean; error?: string }> {
   const adminClient = getAdminSupabase();
   const supabase = adminClient || (await createClient());
 
-    const stageName = (data.stage_name || '').trim();
-    if (!stageName) {
-      return { success: false, error: 'Stage name is required' };
-    }
+  const stageName = (data.stage_name || '').trim();
+  if (!stageName) {
+    return { success: false, error: 'Stage name is required' };
+  }
+  if (stageName.length > 100) {
+    return { success: false, error: 'Stage name must be under 100 characters' };
+  }
 
   const email = (data.email || '').trim() || null;
+  if (email && (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    return { success: false, error: 'Please enter a valid email address' };
+  }
+
   const phone = (data.phone || '').trim() || null;
+  if (phone && phone.length > 30) {
+    return { success: false, error: 'Phone number is too long (max 30 characters)' };
+  }
+
   const legalName = (data.legal_name || '').trim() || null;
+  if (legalName && legalName.length > 150) {
+    return { success: false, error: 'Legal name is too long (max 150 characters)' };
+  }
+
   const location = (data.location || '').trim() || null;
+  if (location && location.length > 150) {
+    return { success: false, error: 'Location is too long (max 150 characters)' };
+  }
+
+  const bio = (data.bio || '').trim() || null;
+  if (bio && bio.length > 2500) {
+    return { success: false, error: 'Bio must be under 2,500 characters' };
+  }
+
   const profileImageUrl = data.profile_image_url || null;
 
   const artistData = {
@@ -325,35 +395,36 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
     location: location,
     phone: phone,
     email: email,
-    status: 'Active',
-    dakhni_verse_role: data.dakhni_verse_role || 'Artist',
+    status: 'Pending',
+    dakhni_verse_role: 'Pending Applicant',
   };
 
   const profileData = {
     primary_role: data.primary_role || null,
-    genres: Array.isArray(data.genres) ? data.genres : (data.genres ? [data.genres] : []),
-    subgenres: Array.isArray(data.subgenres) ? data.subgenres : (data.subgenres ? [data.subgenres] : []),
-    languages: Array.isArray(data.languages) ? data.languages : (data.languages ? [data.languages] : []),
+    genres: Array.isArray(data.genres) ? data.genres.slice(0, 15) : (data.genres ? [data.genres] : []),
+    subgenres: Array.isArray(data.subgenres) ? data.subgenres.slice(0, 15) : (data.subgenres ? [data.subgenres] : []),
+    languages: Array.isArray(data.languages) ? data.languages.slice(0, 10) : (data.languages ? [data.languages] : []),
     vocal_style: data.vocal_style || null,
     songwriting: Boolean(data.songwriting),
     composition: Boolean(data.composition),
-    instruments: Array.isArray(data.instruments) ? data.instruments : (data.instruments ? [data.instruments] : []),
-    influences: data.influences || null,
-    preferred_producers: data.preferred_producers || null,
-    bio: data.bio || null,
+    instruments: Array.isArray(data.instruments) ? data.instruments.slice(0, 15) : (data.instruments ? [data.instruments] : []),
+    influences: data.influences ? String(data.influences).slice(0, 500) : null,
+    preferred_producers: data.preferred_producers ? String(data.preferred_producers).slice(0, 500) : null,
+    bio: bio,
   };
 
   const rawLinks = data.socialLinks || data.social_links || [];
   const socialLinks = Array.isArray(rawLinks)
     ? rawLinks
-        .filter((l: any) => l.url && l.url.trim() !== '')
+        .filter((l: any) => l && l.url && typeof l.url === 'string' && l.url.trim() !== '')
+        .slice(0, 20)
         .map((l: any) => ({
-          platform: l.platform || 'Other',
-          url: l.url.trim(),
+          platform: (l.platform || 'Other').slice(0, 50),
+          url: l.url.trim().slice(0, 500),
         }))
     : [];
 
-  // 1. Try atomic RPC if available
+  // Single source of truth: Execute hardened atomic SECURITY DEFINER RPC
   try {
     const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_public_artist', {
       p_artist_data: artistData,
@@ -362,100 +433,34 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
     });
 
     if (rpcError) {
-      console.log('submit_public_artist RPC error:', rpcError);
-    } else if (rpcResult?.success) {
+      console.error('submit_public_artist RPC error:', rpcError);
+      return { 
+        success: false, 
+        error: rpcError.message || 'Submission failed. Please try again.' 
+      };
+    }
+
+    if (rpcResult?.success) {
       revalidatePath('/artists');
       revalidatePath('/artists/review');
       revalidatePath('/dashboard');
       revalidatePath('/projects');
       revalidatePath('/sessions');
-      if (rpcResult.artist_id) {
-        revalidatePath(`/artists/${rpcResult.artist_id}`);
-      }
-      return rpcResult;
-    }
-  } catch (rpcCatchErr) {
-    console.log('RPC catch error:', rpcCatchErr);
-  }
-
-  // 2. Fallback: Always create a new Pending applicant (never update existing)
-  try {
-    let newArtistData: any = {
-      ...artistData,
-      date_joined: new Date().toISOString().split('T')[0],
-      status: 'Pending',
-      dakhni_verse_role: 'Pending Applicant',
-    };
-
-    let { data: newArtist, error: createError } = await supabase
-      .from('artists')
-      .insert([newArtistData])
-      .select()
-      .single();
-
-    // If enum doesn't support 'Pending', fallback to 'Inactive'
-    if (createError && createError.code === '22P02') {
-      newArtistData.status = 'Inactive';
-      newArtistData.dakhni_verse_role = 'Pending Applicant';
-      const res = await supabase
-        .from('artists')
-        .insert([newArtistData])
-        .select()
-        .single();
-      newArtist = res.data;
-      createError = res.error;
+      return {
+        success: true,
+        action: rpcResult.action,
+        artist_id: rpcResult.artist_id,
+        stage_name: rpcResult.stage_name,
+        is_reapplication: rpcResult.is_reapplication,
+      };
     }
 
-    if (createError) throw createError;
-    const artistId = newArtist.id;
-
-    const musicPayload = {
-      artist_id: artistId,
-      ...profileData,
-    };
-    const { error: profileError } = await supabase
-      .from('artist_music_profiles')
-      .insert([musicPayload]);
-
-    if (profileError) console.error('Error creating music profile in fallback:', profileError);
-
-    if (socialLinks.length > 0) {
-      const linksToInsert = socialLinks.map((l: any) => ({ ...l, artist_id: artistId }));
-      await supabase.from('artist_social_links').insert(linksToInsert);
-    }
-
-    try {
-      await supabase.from('activity_logs').insert([{
-        action: 'Artist Application Submitted',
-        entity_type: 'Artist',
-        entity_id: artistId,
-        description: `New application submitted by "${stageName}" (Pending Manager Review)`,
-      }]);
-    } catch {
-      // Non-blocking log insertion
-    }
-
-    revalidatePath('/artists');
-    revalidatePath('/artists/review');
-    revalidatePath('/dashboard');
-    revalidatePath('/projects');
-    revalidatePath('/sessions');
-    revalidatePath(`/artists/${artistId}`);
-
-    return {
-      success: true,
-      action: 'created',
-      artist_id: artistId,
-      stage_name: stageName,
-    };
+    return { success: false, error: 'Failed to process application. Please try again.' };
   } catch (err: any) {
     console.error('Error in submitArtistSelfService:', err);
-    const isRls = err?.code === '42501' || err?.message?.includes('row-level security');
     return {
       success: false,
-      error: isRls
-        ? 'Database permission error: Unauthenticated submissions are blocked by Supabase Row-Level Security (RLS). Please run the SQL migration (004_fix_public_intake_rls.sql) in your Supabase SQL Editor.'
-        : (err?.message || 'Failed to submit profile. Please try again.'),
+      error: err?.message || 'Failed to submit profile. Please try again.',
     };
   }
 }
