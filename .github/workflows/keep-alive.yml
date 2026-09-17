@@ -2,8 +2,8 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    # Twice a week — comfortably inside the 7-day free-tier inactivity window
-    - cron: '0 6 * * 1,4'
+    # Daily ping — keeps the DB alive well within the 7-day free-tier auto-pause window
+    - cron: '0 6 * * *'
   workflow_dispatch: {}
 
 jobs:

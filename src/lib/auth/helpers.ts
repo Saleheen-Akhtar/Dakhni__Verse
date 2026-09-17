@@ -82,22 +82,24 @@ export async function requireRole(roles: string[]) {
 
 /**
  * Server action authentication helper.
- * Throws explicit error if user is unauthenticated.
+ * Uses the React-cached getUser() which reads the x-user-id header forwarded
+ * by middleware (0ms) instead of making a fresh auth.getUser() network call.
  */
 export async function requireUserSession() {
-  const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) {
+  const user = await getUser()
+  if (!user) {
     throw new Error('Authentication required')
   }
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('id, email, name, role, artist_id')
-    .eq('id', user.id)
-    .single()
+  // Re-use the React-cached profile fetch (also deduplicated within a request)
+  const profile = await getCurrentUserProfile()
+  if (!profile) {
+    throw new Error('Authentication required')
+  }
 
-  return { user, profile: profile as CurrentUser | null, supabase }
+  // Return a supabase client for callers that need to run further queries
+  const supabase = await createClient()
+  return { user, profile, supabase }
 }
 
 /**
