@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
+// NOTE: Next.js middleware runs at Edge Runtime on Vercel by default.
+// No explicit runtime export is needed — it is already edge-executed.
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 

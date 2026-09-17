@@ -92,12 +92,12 @@ export async function getArtistById(id: string) {
   ] = await Promise.all([
     supabase
       .from('artists')
-      .select('*, music_profile:artist_music_profiles(*)')
+      .select('id, stage_name, legal_name, profile_image_url, location, phone, email, date_joined, status, dakhni_verse_role, duplicate_of_id, created_by, created_at, updated_at, music_profile:artist_music_profiles(id, artist_id, primary_role, genres, subgenres, languages, vocal_style, songwriting, composition, instruments, influences, preferred_producers, bio, created_at, updated_at)')
       .eq('id', id)
       .single(),
     supabase
       .from('artist_social_links')
-      .select('*')
+      .select('id, artist_id, platform, url, created_at, updated_at')
       .eq('artist_id', id),
   ]);
 
@@ -211,7 +211,7 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
 
   const { data: createdArtist, error: fetchErr } = await supabase
     .from('artists')
-    .select('*')
+    .select('id, stage_name, legal_name, profile_image_url, location, phone, email, date_joined, status, dakhni_verse_role, duplicate_of_id, created_by, created_at, updated_at')
     .eq('id', rpcRes.artist_id)
     .single();
 

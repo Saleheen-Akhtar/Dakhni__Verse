@@ -9,7 +9,7 @@ export async function getRecentActivity(limit: number = 20) {
   // NOTE: Assuming there's a user table linked, but using standard structure
   const { data, error } = await supabase
     .from('activity_logs')
-    .select('*')
+    .select('id, action, entity_type, entity_id, description, created_at, user_id')
     .order('created_at', { ascending: false })
     .limit(limit);
 

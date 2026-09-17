@@ -47,23 +47,31 @@ export async function requireAuth() {
 }
 
 import { measureQuery } from '@/lib/telemetry/perf'
+import { unstable_cache } from 'next/cache'
 
 export const getCurrentUserProfile = cache(async (): Promise<CurrentUser | null> => {
-  return measureQuery('getCurrentUserProfile', async () => {
-    const user = await getUser()
-    if (!user) return null
+  const user = await getUser()
+  if (!user) return null
 
-    const supabase = await createClient()
-    const { data: profile, error } = await supabase
-      .from('users')
-      .select('id, email, name, role, artist_id')
-      .eq('id', user.id)
-      .single()
+  // unstable_cache: persists across requests for 60 seconds, keyed to user id.
+  // Mutations that touch name/role must call revalidateTag(`profile-${user.id}`).
+  return unstable_cache(
+    async () => {
+      return measureQuery('getCurrentUserProfile', async () => {
+        const supabase = await createClient()
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('id, email, name, role, artist_id')
+          .eq('id', user.id)
+          .single()
 
-    if (error || !profile) return null
-
-    return profile as CurrentUser
-  })
+        if (error || !profile) return null
+        return profile as CurrentUser
+      })
+    },
+    ['user-profile', user.id],
+    { revalidate: 60, tags: [`profile-${user.id}`] }
+  )()
 })
 
 export async function requireRole(roles: string[]) {

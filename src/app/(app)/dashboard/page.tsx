@@ -9,8 +9,9 @@ import { formatCurrency } from "@/lib/utils/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICard } from "@/components/ui/kpi-card";
 import { DashboardDateFilter } from "@/components/dashboard/dashboard-date-filter";
-import { StudioActivityChart } from "@/components/dashboard/studio-activity-chart";
-import { ExpenseBreakdownChart } from "@/components/dashboard/expense-breakdown-chart";
+// Lazy wrappers: Recharts is loaded only after hydration, not in the initial bundle.
+import { StudioActivityChartLazy } from "@/components/dashboard/studio-activity-chart-lazy";
+import { ExpenseBreakdownChartLazy } from "@/components/dashboard/expense-breakdown-chart-lazy";
 import { ProductionSummary } from "@/components/dashboard/production-summary";
 import { RecentActivityFeed } from "@/components/dashboard/recent-activity";
 import {
@@ -240,7 +241,7 @@ async function AsyncStudioActivitySection({
   dateRange: { from: Date; to: Date };
 }) {
   const studioKpis = await getStudioKPIs(dateRange);
-  return <StudioActivityChart studioKpis={studioKpis} />;
+  return <StudioActivityChartLazy studioKpis={studioKpis} />;
 }
 
 async function AsyncExpenseBreakdownSection({
@@ -252,7 +253,7 @@ async function AsyncExpenseBreakdownSection({
   const toStr = dateRange.to.toISOString().split("T")[0];
   const expenseData = await getExpenseBreakdown(fromStr, toStr);
 
-  return <ExpenseBreakdownChart data={expenseData} />;
+  return <ExpenseBreakdownChartLazy data={expenseData} />;
 }
 
 async function AsyncRecentActivitySection() {

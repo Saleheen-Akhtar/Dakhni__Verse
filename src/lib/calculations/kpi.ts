@@ -182,8 +182,10 @@ export async function getTotalExpenses(dateRange?: DateRange): Promise<number> {
 }
 
 export async function getAvailableFunds(): Promise<number> {
-  const confirmedContributions = await getConfirmedContributions();
-  const totalExpenses = await getTotalExpenses();
+  const [confirmedContributions, totalExpenses] = await Promise.all([
+    getConfirmedContributions(),
+    getTotalExpenses(),
+  ]);
   return confirmedContributions - totalExpenses;
 }
 
