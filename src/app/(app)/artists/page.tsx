@@ -7,10 +7,20 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ClipboardCheck } from 'lucide-react';
 
-export default async function ArtistsPage() {
+export default async function ArtistsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ search?: string; status?: string; page?: string }>;
+}) {
+  const params = await searchParams;
   const [profile, artists, pendingCount] = await Promise.all([
     getCurrentUserProfile(),
-    getArtists(),
+    getArtists({
+      search: params?.search,
+      status: params?.status,
+      page: params?.page ? Number(params.page) : undefined,
+      pageSize: 48,
+    }),
     getPendingApplicationsCount(),
   ]);
 
@@ -20,7 +30,7 @@ export default async function ArtistsPage() {
       {profile?.role === 'Manager' && (
         <>
           <Button asChild variant="outline" className="relative border-neutral-300 hover:bg-neutral-50">
-            <Link href="/artists/review" prefetch={false} className="flex items-center gap-2">
+            <Link href="/artists/review" className="flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4 text-[#D71920]" />
               <span>Review Applications</span>
               {pendingCount > 0 && (
@@ -31,7 +41,7 @@ export default async function ArtistsPage() {
             </Link>
           </Button>
           <Button asChild>
-            <Link href="/artists/new" prefetch={false}>Add Artist</Link>
+            <Link href="/artists/new">Add Artist</Link>
           </Button>
         </>
       )}
@@ -41,7 +51,12 @@ export default async function ArtistsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Artists" subtitle="Manage collective members" actions={actions} />
-      <ArtistDirectory artists={artists} userRole={profile?.role} />
+      <ArtistDirectory 
+        artists={artists} 
+        userRole={profile?.role}
+        initialSearch={params?.search || ''}
+        initialStatus={params?.status || 'All'}
+      />
     </div>
   );
 }

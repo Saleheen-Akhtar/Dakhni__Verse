@@ -16,38 +16,43 @@ function getAdminSupabase() {
   return null;
 }
 
-export async function getArtists(filters?: { status?: string; role?: string; search?: string }) {
+export async function getArtists(filters?: { status?: string; role?: string; search?: string; page?: number; pageSize?: number }) {
   const supabase = await createClient();
   let query = supabase.from('artists').select('*');
 
-  if (filters?.status) {
+  if (filters?.status && filters.status !== 'All') {
     query = query.eq('status', filters.status);
-  }
-  if (filters?.role) {
-    query = query.eq('role', filters.role);
-  }
-  if (filters?.search) {
-    query = query.ilike('stage_name', `%${filters.search}%`);
+  } else {
+    // Push exclusions directly to PostgreSQL to prevent loading applicants into memory
+    query = query
+      .not('status', 'in', '("Pending","Rejected")')
+      .not('dakhni_verse_role', 'in', '("Pending Applicant","Rejected Applicant","Re-Application")');
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false });
+  if (filters?.role) {
+    query = query.eq('dakhni_verse_role', filters.role);
+  }
+
+  if (filters?.search) {
+    const s = filters.search.trim();
+    query = query.or(`stage_name.ilike.%${s}%,legal_name.ilike.%${s}%`);
+  }
+
+  query = query.order('created_at', { ascending: false });
+
+  if (filters?.page && filters?.pageSize) {
+    const from = (filters.page - 1) * filters.pageSize;
+    const to = from + filters.pageSize - 1;
+    query = query.range(from, to);
+  }
+
+  const { data, error } = await query;
   if (error) {
     console.error('Error fetching artists:', error);
     return [];
   }
 
-  // If no explicit status filter is requested, exclude pending & rejected applicants from active roster
-  if (!filters?.status) {
-    return (data || []).filter(
-      (a) =>
-        a.status !== 'Pending' &&
-        a.status !== 'Rejected' &&
-        a.dakhni_verse_role !== 'Pending Applicant' &&
-        a.dakhni_verse_role !== 'Rejected Applicant'
-    );
-  }
-
-  return data;
+  return data || [];
 }
 
 export async function getArtistById(id: string) {

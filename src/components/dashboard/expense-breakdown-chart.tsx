@@ -14,6 +14,7 @@ import { formatCurrency } from "@/lib/utils/format";
 
 interface ExpenseBreakdownChartProps {
   dateRange: { from: Date; to: Date };
+  initialData?: Array<{ name: string; value: number }>;
 }
 
 const COLORS = [
@@ -29,20 +30,24 @@ const COLORS = [
   "#DDDDDD",
 ];
 
-export function ExpenseBreakdownChart({ dateRange }: ExpenseBreakdownChartProps) {
+export function ExpenseBreakdownChart({ dateRange, initialData }: ExpenseBreakdownChartProps) {
   const [mounted, setMounted] = useState(false);
-  const [data, setData] = useState<Array<{ name: string; value: number }>>([]);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<Array<{ name: string; value: number }>>(initialData || []);
+  const [loading, setLoading] = useState(!initialData);
 
   useEffect(() => {
     setMounted(true);
+    if (initialData) {
+      setData(initialData);
+      setLoading(false);
+      return;
+    }
     loadData();
-  }, [dateRange]);
+  }, [dateRange, initialData]);
 
   async function loadData() {
     setLoading(true);
     try {
-      // Import dynamically to avoid server/client issues
       const { getExpenseSummary } = await import("@/lib/queries/expenses");
       const summary = await getExpenseSummary(
         dateRange.from.toISOString().split("T")[0],

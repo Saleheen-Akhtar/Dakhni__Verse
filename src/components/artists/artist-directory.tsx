@@ -11,12 +11,32 @@ import { ARTIST_STATUSES } from '@/lib/utils/constants';
 interface ArtistDirectoryProps {
   artists: any[];
   userRole?: string;
+  initialSearch?: string;
+  initialStatus?: string;
 }
 
-export function ArtistDirectory({ artists, userRole }: ArtistDirectoryProps) {
+export function ArtistDirectory({
+  artists,
+  userRole,
+  initialSearch = '',
+  initialStatus = 'All',
+}: ArtistDirectoryProps) {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
+
+  const updateUrl = (search: string, status: string) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (status && status !== 'All') params.set('status', status);
+    const qs = params.toString();
+    router.push(`/artists${qs ? `?${qs}` : ''}`);
+  };
+
+  const handleStatusChange = (status: string) => {
+    setStatusFilter(status);
+    updateUrl(searchQuery, status);
+  };
 
   const filteredArtists = artists.filter((artist) => {
     const matchesSearch = artist.stage_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -33,7 +53,10 @@ export function ArtistDirectory({ artists, userRole }: ArtistDirectoryProps) {
         <div className="w-full sm:w-96">
           <SearchInput 
             value={searchQuery} 
-            onChange={(e: any) => setSearchQuery(typeof e === 'string' ? e : e?.target?.value || '')} 
+            onChange={(e: any) => {
+              const val = typeof e === 'string' ? e : e?.target?.value || '';
+              setSearchQuery(val);
+            }} 
             placeholder="Search artists..." 
           />
         </div>
@@ -42,7 +65,7 @@ export function ArtistDirectory({ artists, userRole }: ArtistDirectoryProps) {
             <Button 
               key={status} 
               variant={statusFilter === status ? "default" : "outline"}
-              onClick={() => setStatusFilter(status)}
+              onClick={() => handleStatusChange(status)}
               size="sm"
             >
               {status}

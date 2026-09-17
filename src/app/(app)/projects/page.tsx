@@ -6,10 +6,21 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ search?: string; status?: string; artist_id?: string; page?: string }>;
+}) {
+  const params = await searchParams;
   const [user, projects, artists] = await Promise.all([
     getCurrentUserProfile(),
-    getProjects(),
+    getProjects({
+      search: params?.search,
+      status: params?.status,
+      artist_id: params?.artist_id,
+      page: params?.page ? Number(params.page) : undefined,
+      pageSize: 50,
+    }),
     getArtistOptions(),
   ]);
   const isManager = user?.role === 'Manager';
@@ -27,7 +38,13 @@ export default async function ProjectsPage() {
           </Button>
         )}
       </div>
-      <ProjectList projects={projects} artists={artists} />
+      <ProjectList 
+        projects={projects} 
+        artists={artists} 
+        initialSearch={params?.search || ''}
+        initialStatus={params?.status || 'all'}
+        initialArtist={params?.artist_id || 'all'}
+      />
     </div>
   );
 }

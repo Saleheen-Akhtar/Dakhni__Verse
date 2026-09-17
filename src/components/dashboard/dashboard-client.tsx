@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Users,
@@ -36,6 +37,7 @@ interface DashboardClientProps {
   initialKpis: DashboardKPIs;
   studioKpis: StudioKPIs;
   recentActivity: any[];
+  initialExpenseData?: Array<{ name: string; value: number }>;
   userRole: string;
   initialDateRange: { from: string; to: string };
 }
@@ -44,35 +46,33 @@ export function DashboardClient({
   initialKpis,
   studioKpis,
   recentActivity,
+  initialExpenseData,
   userRole,
   initialDateRange,
 }: DashboardClientProps) {
+  const router = useRouter();
   const [kpis, setKpis] = useState(initialKpis);
   const [studio, setStudio] = useState(studioKpis);
   const [activity, setActivity] = useState(recentActivity);
+  const [expenseData, setExpenseData] = useState(initialExpenseData);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: new Date(initialDateRange.from),
     to: new Date(initialDateRange.to),
   });
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setKpis(initialKpis);
+    setStudio(studioKpis);
+    setActivity(recentActivity);
+    setExpenseData(initialExpenseData);
+  }, [initialKpis, studioKpis, recentActivity, initialExpenseData]);
+
   const handleDateRangeChange = async (range: { from: Date; to: Date }) => {
     setDateRange(range);
-    setLoading(true);
-    try {
-      const [newKpis, newStudio, newActivity] = await Promise.all([
-        getDashboardKPIs(range),
-        getStudioKPIs(range),
-        getRecentActivity(15),
-      ]);
-      setKpis(newKpis);
-      setStudio(newStudio);
-      setActivity(newActivity);
-    } catch (error) {
-      console.error("Error refreshing dashboard:", error);
-    } finally {
-      setLoading(false);
-    }
+    const fromStr = range.from.toISOString().split("T")[0];
+    const toStr = range.to.toISOString().split("T")[0];
+    router.push(`/dashboard?from=${fromStr}&to=${toStr}`);
   };
 
   return (
@@ -184,7 +184,9 @@ export function DashboardClient({
             <CardTitle className="text-lg">Studio Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <StudioActivityChart studioKpis={studio} />
+            <Suspense fallback={<div className="h-64 w-full animate-pulse bg-muted rounded-lg" />}>
+              <StudioActivityChart studioKpis={studio} />
+            </Suspense>
           </CardContent>
         </Card>
 
@@ -194,7 +196,9 @@ export function DashboardClient({
             <CardTitle className="text-lg">Expense Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <ExpenseBreakdownChart dateRange={dateRange} />
+            <Suspense fallback={<div className="h-64 w-full animate-pulse bg-muted rounded-lg" />}>
+              <ExpenseBreakdownChart dateRange={dateRange} initialData={expenseData} />
+            </Suspense>
           </CardContent>
         </Card>
       </div>

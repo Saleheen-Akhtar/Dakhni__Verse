@@ -8,11 +8,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatDate } from '@/lib/utils/format';
 
-export function ProjectList({ projects, artists }: { projects: any[]; artists: any[] }) {
+interface ProjectListProps {
+  projects: any[];
+  artists: any[];
+  initialSearch?: string;
+  initialStatus?: string;
+  initialArtist?: string;
+}
+
+export function ProjectList({
+  projects,
+  artists,
+  initialSearch = '',
+  initialStatus = 'all',
+  initialArtist = 'all',
+}: ProjectListProps) {
   const router = useRouter();
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [artistFilter, setArtistFilter] = useState('all');
+  const [search, setSearch] = useState(initialSearch);
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [artistFilter, setArtistFilter] = useState(initialArtist);
+
+  const updateFilters = (newSearch: string, newStatus: string, newArtist: string) => {
+    const params = new URLSearchParams();
+    if (newSearch) params.set('search', newSearch);
+    if (newStatus && newStatus !== 'all') params.set('status', newStatus);
+    if (newArtist && newArtist !== 'all') params.set('artist_id', newArtist);
+    const qs = params.toString();
+    router.push(`/projects${qs ? `?${qs}` : ''}`);
+  };
 
   const filtered = projects.filter(p => {
     if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;

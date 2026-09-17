@@ -7,22 +7,30 @@ export async function getArtistOptions() {
   return getOpts();
 }
 
-export async function getProjects(filters?: { artist_id?: string; producer_id?: string; status?: string; search?: string }) {
+export async function getProjects(filters?: { artist_id?: string; producer_id?: string; status?: string; search?: string; page?: number; pageSize?: number }) {
   const supabase = await createClient();
   let query = supabase.from('projects').select(`*, artist:artists!artist_id(id, stage_name), producer:artists!producer_id(id, stage_name), mix_engineer:artists!mix_engineer_id(id, stage_name), mastering_engineer:artists!mastering_engineer_id(id, stage_name)`);
 
-  if (filters?.artist_id) query = query.eq('artist_id', filters.artist_id);
-  if (filters?.producer_id) query = query.eq('producer_id', filters.producer_id);
-  if (filters?.status) query = query.eq('status', filters.status);
-  if (filters?.search) query = query.ilike('title', `%${filters.search}%`);
+  if (filters?.artist_id && filters.artist_id !== 'all') query = query.eq('artist_id', filters.artist_id);
+  if (filters?.producer_id && filters.producer_id !== 'all') query = query.eq('producer_id', filters.producer_id);
+  if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
+  if (filters?.search) query = query.ilike('title', `%${filters.search.trim()}%`);
 
-  const { data, error } = await query.order('created_at', { ascending: false });
+  query = query.order('created_at', { ascending: false });
+
+  if (filters?.page && filters?.pageSize) {
+    const from = (filters.page - 1) * filters.pageSize;
+    const to = from + filters.pageSize - 1;
+    query = query.range(from, to);
+  }
+
+  const { data, error } = await query;
   
   if (error) {
     console.error('Error fetching projects:', error);
     return [];
   }
-  return data;
+  return data || [];
 }
 
 export async function getProjectById(id: string) {
