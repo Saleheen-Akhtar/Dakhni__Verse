@@ -21,7 +21,7 @@ function getAdminSupabase() {
 
 export async function getArtists(filters?: { status?: string; role?: string; search?: string; page?: number; pageSize?: number }) {
   const supabase = await createClient();
-  let query = supabase.from('artists').select('id, stage_name, legal_name, profile_image_url, location, status, dakhni_verse_role, date_joined');
+  let query = supabase.from('artists').select('id, stage_name, legal_name, profile_image_url, location, status, dakhni_verse_role, date_joined', { count: 'exact' });
 
   if (filters?.status && filters.status !== 'All') {
     query = query.eq('status', filters.status);
@@ -51,13 +51,15 @@ export async function getArtists(filters?: { status?: string; role?: string; sea
     query = query.range(from, to);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) {
     console.error('Error fetching artists:', error);
     return [];
   }
 
-  return data || [];
+  const result = data || [];
+  (result as any).totalCount = count ?? result.length;
+  return result;
 }
 
 export async function getArtistById(id: string) {
@@ -282,12 +284,44 @@ export async function deleteArtist(id: string) {
   if (!user) throw new Error('Authentication required');
   const { data: currentUser } = await supabase.from('users').select('role').eq('id', user.id).single();
   if (currentUser?.role !== 'Manager') throw new Error('Manager role required');
-  const { error } = await supabase
-    .from('artists')
-    .delete()
-    .eq('id', id);
 
-  if (error) throw error;
+  // Check for historical linked data to preserve data integrity
+  const [
+    { count: projectCount },
+    { count: sessionCount },
+    { count: releaseCount },
+    { count: contribCount },
+  ] = await Promise.all([
+    supabase.from('projects').select('*', { count: 'exact', head: true }).or(`artist_id.eq.${id},producer_id.eq.${id}`),
+    supabase.from('sessions').select('*', { count: 'exact', head: true }).or(`artist_id.eq.${id},engineer_id.eq.${id}`),
+    supabase.from('releases').select('*', { count: 'exact', head: true }).eq('artist_id', id),
+    supabase.from('contributions').select('*', { count: 'exact', head: true }).eq('person_id', id),
+  ]);
+
+  const hasHistoricalData = (projectCount || 0) + (sessionCount || 0) + (releaseCount || 0) + (contribCount || 0) > 0;
+
+  if (hasHistoricalData) {
+    // Safe soft-archive: preserve records while removing from active rosters
+    const { error } = await supabase
+      .from('artists')
+      .update({
+        status: 'Inactive',
+        dakhni_verse_role: 'Archived',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+  } else {
+    // Clean physical delete for empty/unreferenced records
+    const { error } = await supabase
+      .from('artists')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  }
+
   revalidateTag('artist-options');
   return true;
 }

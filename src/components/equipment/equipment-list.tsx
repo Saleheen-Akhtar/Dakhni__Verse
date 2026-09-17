@@ -91,6 +91,7 @@ export function EquipmentList({
           serverPagination={{
             currentPage,
             pageSize,
+            totalCount: (equipment as any).totalCount,
             onPageChange: (newPage) => updateFilters(search, ownerFilter, newPage),
           }}
         />

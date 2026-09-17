@@ -25,21 +25,51 @@ import {
   Activity,
 } from "lucide-react";
 
+function parseSafeDateRange(fromStr?: string, toStr?: string): { from: Date; to: Date } {
+  const now = new Date();
+  const defaultFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+  const defaultTo = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  let fromDate = defaultFrom;
+  let toDate = defaultTo;
+
+  if (fromStr) {
+    const parsed = new Date(fromStr);
+    if (!isNaN(parsed.getTime())) {
+      fromDate = parsed;
+    }
+  }
+
+  if (toStr) {
+    const parsed = new Date(toStr);
+    if (!isNaN(parsed.getTime())) {
+      toDate = parsed;
+    }
+  }
+
+  // Ensure from <= to
+  if (fromDate > toDate) {
+    const temp = fromDate;
+    fromDate = toDate;
+    toDate = temp;
+  }
+
+  // Cap absurdly large spans to 5 years maximum
+  const maxSpanMs = 5 * 365 * 24 * 60 * 60 * 1000;
+  if (toDate.getTime() - fromDate.getTime() > maxSpanMs) {
+    fromDate = new Date(toDate.getTime() - maxSpanMs);
+  }
+
+  return { from: fromDate, to: toDate };
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams?: Promise<{ from?: string; to?: string }>;
 }) {
   const params = await searchParams;
-  const now = new Date();
-  const startOfMonth = params?.from
-    ? new Date(params.from)
-    : new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = params?.to
-    ? new Date(params.to)
-    : new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-  const dateRange = { from: startOfMonth, to: endOfMonth };
+  const dateRange = parseSafeDateRange(params?.from, params?.to);
 
   const [profile, kpis] = await Promise.all([
     getCurrentUserProfile(),
@@ -62,8 +92,8 @@ export default async function DashboardPage({
         </div>
         <DashboardDateFilter
           initialRange={{
-            from: startOfMonth.toISOString(),
-            to: endOfMonth.toISOString(),
+            from: dateRange.from.toISOString(),
+            to: dateRange.to.toISOString(),
           }}
         />
       </div>

@@ -38,25 +38,25 @@ export function ProjectForm({ artists }: { artists: any[] }) {
           <FormField control={form.control} name="artist_id" render={({ field }) => (
             <FormItem><FormLabel>Artist</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
               <FormControl><SelectTrigger><SelectValue placeholder="Select artist" /></SelectTrigger></FormControl>
-              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}</SelectContent>
             </Select><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="producer_id" render={({ field }) => (
             <FormItem><FormLabel>Producer</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
               <FormControl><SelectTrigger><SelectValue placeholder="Select producer" /></SelectTrigger></FormControl>
-              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}</SelectContent>
             </Select><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="mix_engineer_id" render={({ field }) => (
             <FormItem><FormLabel>Mix Engineer</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
               <FormControl><SelectTrigger><SelectValue placeholder="Select mix engineer" /></SelectTrigger></FormControl>
-              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}</SelectContent>
             </Select><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="mastering_engineer_id" render={({ field }) => (
             <FormItem><FormLabel>Mastering Engineer</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
               <FormControl><SelectTrigger><SelectValue placeholder="Select mastering engineer" /></SelectTrigger></FormControl>
-              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}</SelectContent>
             </Select><FormMessage /></FormItem>
           )} />
         </div>

@@ -33,6 +33,8 @@ export function Tabs(props: SimpleTabsProps) {
     children,
   } = props;
 
+  const [internalValue, setInternalValue] = React.useState(defaultValue);
+
   // Simple tabs mode (tabs array provided)
   if (tabs && activeTab !== undefined && onTabChange) {
     return (
@@ -61,7 +63,6 @@ export function Tabs(props: SimpleTabsProps) {
   }
 
   // Compound tabs mode
-  const [internalValue, setInternalValue] = React.useState(defaultValue);
   const currentVal = controlledValue !== undefined ? controlledValue : internalValue;
 
   const handleValueChange = (newVal: string) => {

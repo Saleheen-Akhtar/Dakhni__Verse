@@ -308,7 +308,7 @@ export function GenerateArtistLoginDialog({
                     className="text-xs"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    This email will serve as the artist's login username.
+                    This email will serve as the artist&apos;s login username.
                   </p>
                 </div>
 

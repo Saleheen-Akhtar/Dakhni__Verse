@@ -58,3 +58,35 @@ export async function requireRole(roles: string[]) {
 
   return profile
 }
+
+/**
+ * Server action authentication helper.
+ * Throws explicit error if user is unauthenticated.
+ */
+export async function requireUserSession() {
+  const supabase = await createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) {
+    throw new Error('Authentication required')
+  }
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('id, email, name, role, artist_id')
+    .eq('id', user.id)
+    .single()
+
+  return { user, profile: profile as CurrentUser | null, supabase }
+}
+
+/**
+ * Server action manager authorization helper.
+ * Throws explicit error if user is not a Manager.
+ */
+export async function requireManagerAction() {
+  const session = await requireUserSession()
+  if (session.profile?.role !== 'Manager') {
+    throw new Error('Manager role required')
+  }
+  return session
+}

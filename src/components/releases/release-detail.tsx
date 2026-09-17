@@ -34,7 +34,7 @@ export function ReleaseDetail({ release, isManager }: { release: any; isManager:
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-secondary-text">Artist</p>
-              <p className="font-medium">{release.artist?.name || '-'}</p>
+              <p className="font-medium">{release.artist?.stage_name || release.artist?.name || '-'}</p>
             </div>
             <div>
               <p className="text-sm text-secondary-text">Project</p>

@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createEquipmentSchema, updateEquipmentSchema } from '@/lib/validation/equipment';
+import { requireManagerAction } from '@/lib/auth/helpers';
 import type { Equipment, EquipmentWithOwner } from '@/types';
 export async function getArtistOptions() {
   const { getArtistOptions: getOpts } = await import('./artists');
@@ -15,9 +17,9 @@ export async function getEquipment(filters?: {
 }) {
   const supabase = await createClient();
   let query = supabase.from('equipment').select(`
-    *,
+    id, name, category, brand, model, owner_type, owner_id, purchase_date, purchase_value, condition, location, notes, created_at,
     owner:artists!owner_id(id, stage_name)
-  `);
+  `, { count: 'exact' });
 
   if (filters?.owner_type) query = query.eq('owner_type', filters.owner_type);
   if (filters?.search) {
@@ -35,12 +37,14 @@ export async function getEquipment(filters?: {
     query = query.range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) {
     console.error('Error fetching equipment:', error);
     return [];
   }
-  return data;
+  const result = data || [];
+  (result as any).totalCount = count ?? result.length;
+  return result;
 }
 
 export async function getEquipmentById(id: string) {
@@ -48,7 +52,7 @@ export async function getEquipmentById(id: string) {
   const { data, error } = await supabase
     .from('equipment')
     .select(`
-      *,
+      id, name, category, brand, model, owner_type, owner_id, purchase_date, purchase_value, condition, location, notes, created_at,
       owner:artists!owner_id(id, stage_name)
     `)
     .eq('id', id)
@@ -62,10 +66,11 @@ export async function getEquipmentById(id: string) {
 }
 
 export async function createEquipment(data: any, userId?: string) {
-  const supabase = await createClient();
-  const authUser = userId || (await supabase.auth.getUser()).data.user?.id || null;
+  const { user, supabase } = await requireManagerAction();
+  const authUser = userId || user.id;
+  const validated = createEquipmentSchema.parse(data);
   
-  const insertData = { ...data, created_by: authUser };
+  const insertData: any = { ...validated, created_by: authUser };
   if (insertData.owner_id === '') insertData.owner_id = null;
 
   const { data: equipment, error } = await supabase
@@ -79,9 +84,10 @@ export async function createEquipment(data: any, userId?: string) {
 }
 
 export async function updateEquipment(id: string, data: any) {
-  const supabase = await createClient();
+  const { supabase } = await requireManagerAction();
+  const validated = updateEquipmentSchema.parse(data);
   
-  const updateData = { ...data };
+  const updateData: any = { ...validated };
   if (updateData.owner_id === '') updateData.owner_id = null;
 
   const { data: equipment, error } = await supabase
@@ -96,7 +102,7 @@ export async function updateEquipment(id: string, data: any) {
 }
 
 export async function deleteEquipment(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('equipment')
     .delete()

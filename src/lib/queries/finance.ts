@@ -50,13 +50,17 @@ export async function getArtistOptions() {
   return baseGetArtistOptions();
 }
 
+import { createClient } from "@/lib/supabase/server";
+
 export async function getContributions(filters?: any) {
   const data = await baseGetContributions(filters);
   // Map contribution_date to date for convenience in DataTable accessor
-  return (data || []).map((c: any) => ({
+  const mapped = (data || []).map((c: any) => ({
     ...c,
     date: c.contribution_date,
   }));
+  (mapped as any).totalCount = (data as any)?.totalCount ?? mapped.length;
+  return mapped;
 }
 
 export async function createContribution(data: any, userId?: string) {
@@ -65,16 +69,18 @@ export async function createContribution(data: any, userId?: string) {
     payload.contribution_date = payload.date;
   }
   delete payload.date;
-  return baseCreateContribution(payload, userId || "");
+  return baseCreateContribution(payload, userId);
 }
 
 export async function getExpenses(filters?: any) {
   const data = await baseGetExpenses(filters);
   // Map expense_date to date for convenience in DataTable accessor
-  return (data || []).map((e: any) => ({
+  const mapped = (data || []).map((e: any) => ({
     ...e,
     date: e.expense_date,
   }));
+  (mapped as any).totalCount = (data as any)?.totalCount ?? mapped.length;
+  return mapped;
 }
 
 export async function createExpense(data: any, userId?: string) {
@@ -83,10 +89,28 @@ export async function createExpense(data: any, userId?: string) {
     payload.expense_date = payload.date;
   }
   delete payload.date;
-  return baseCreateExpense(payload, userId || "");
+  return baseCreateExpense(payload, userId);
 }
 
 export async function getFinanceSummaries() {
+  const supabase = await createClient();
+
+  // 1. Try native database-side RPC aggregation (single roundtrip)
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_finance_summary_rpc');
+    if (!rpcError && rpcData) {
+      return {
+        confirmedContributions: Number(rpcData.confirmedContributions || 0),
+        pendingContributions: Number(rpcData.pendingContributions || 0),
+        totalExpenses: Number(rpcData.totalExpenses || 0),
+        availableFunds: Number(rpcData.availableFunds || 0),
+      };
+    }
+  } catch {
+    // Fallback to calculation set below
+  }
+
+  // 2. Fallback
   const [confirmed, pending, totalExpenses] = await Promise.all([
     getConfirmedContributions(),
     getPendingContributions(),

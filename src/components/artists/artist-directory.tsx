@@ -81,31 +81,40 @@ export function ArtistDirectory({
             ))}
           </div>
 
-          {(currentPage > 1 || artists.length >= pageSize) && (
-            <div className="flex items-center justify-between pt-4 border-t border-border">
-              <span className="text-xs text-muted-foreground">
-                Page {currentPage}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage <= 1}
-                  onClick={() => updateUrl(searchQuery, statusFilter, currentPage - 1)}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={artists.length < pageSize}
-                  onClick={() => updateUrl(searchQuery, statusFilter, currentPage + 1)}
-                >
-                  Next
-                </Button>
+          {(() => {
+            const totalCount = (artists as any).totalCount ?? artists.length;
+            const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+            const startIdx = artists.length > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+            const endIdx = Math.min(startIdx + artists.length - 1, totalCount);
+
+            return (currentPage > 1 || totalCount > pageSize) ? (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-4 border-t border-border">
+                <span className="text-xs text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">{startIdx}</span> to{" "}
+                  <span className="font-semibold text-foreground">{endIdx}</span> of{" "}
+                  <span className="font-semibold text-foreground">{totalCount}</span> artists (Page {currentPage} of {totalPages})
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => updateUrl(searchQuery, statusFilter, currentPage - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => updateUrl(searchQuery, statusFilter, currentPage + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            ) : null;
+          })()}
         </>
       ) : (
         <EmptyState 

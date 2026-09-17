@@ -40,3 +40,6 @@ export interface TargetProgress { actual: number; target: number | null; percent
 
 // Current user profile
 export interface CurrentUser { id: string; email: string; name: string; role: UserRole; artist_id: string | null; }
+
+// Reference data option
+export interface ArtistOption { id: string; stage_name: string; }

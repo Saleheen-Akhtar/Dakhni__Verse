@@ -109,7 +109,7 @@ export function ReleaseList({
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Artists" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Artists</SelectItem>
-            {artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+            {artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -124,6 +124,7 @@ export function ReleaseList({
           serverPagination={{
             currentPage,
             pageSize,
+            totalCount: (releases as any).totalCount,
             onPageChange: (newPage) => updateFilters(search, statusFilter, artistFilter, newPage),
           }}
         />

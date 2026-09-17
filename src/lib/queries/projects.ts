@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createProjectSchema, updateProjectSchema } from '@/lib/validation/project';
+import { requireUserSession, requireManagerAction } from '@/lib/auth/helpers';
 import type { Project, ProjectWithRelations, ProjectStatusHistory } from '@/types';
 export async function getArtistOptions() {
   const { getArtistOptions: getOpts } = await import('./artists');
@@ -9,7 +11,7 @@ export async function getArtistOptions() {
 
 export async function getProjects(filters?: { artist_id?: string; producer_id?: string; status?: string; search?: string; page?: number; pageSize?: number }) {
   const supabase = await createClient();
-  let query = supabase.from('projects').select(`id, title, status, target_release_date, created_at, artist_id, producer_id, artist:artists!artist_id(id, stage_name), producer:artists!producer_id(id, stage_name)`);
+  let query = supabase.from('projects').select(`id, title, status, target_release_date, created_at, artist_id, producer_id, artist:artists!artist_id(id, stage_name), producer:artists!producer_id(id, stage_name)`, { count: 'exact' });
 
   if (filters?.artist_id && filters.artist_id !== 'all') query = query.eq('artist_id', filters.artist_id);
   if (filters?.producer_id && filters.producer_id !== 'all') query = query.eq('producer_id', filters.producer_id);
@@ -27,13 +29,15 @@ export async function getProjects(filters?: { artist_id?: string; producer_id?: 
     query = query.range(from, to);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   
   if (error) {
     console.error('Error fetching projects:', error);
     return [];
   }
-  return data || [];
+  const result = data || [];
+  (result as any).totalCount = count ?? result.length;
+  return result;
 }
 
 export async function getProjectById(id: string) {
@@ -53,13 +57,14 @@ export async function getProjectById(id: string) {
 }
 
 export async function createProject(data: any, userId?: string) {
-  const supabase = await createClient();
-  const authUser = userId || (await supabase.auth.getUser()).data.user?.id || null;
+  const { user, supabase } = await requireUserSession();
+  const authUser = userId || user.id;
+  const validated = createProjectSchema.parse(data);
   
   // Clean empty strings for optional UUID fields
-  const insertData = { ...data, created_by: authUser };
+  const insertData = { ...validated, created_by: authUser };
   ['producer_id', 'mix_engineer_id', 'mastering_engineer_id', 'artist_id'].forEach(field => {
-    if (insertData[field] === '') insertData[field] = null;
+    if ((insertData as any)[field] === '') (insertData as any)[field] = null;
   });
 
   const { data: project, error } = await supabase
@@ -85,22 +90,14 @@ export async function createProject(data: any, userId?: string) {
 }
 
 export async function updateProject(id: string, data: any, userId?: string) {
-  const supabase = await createClient();
-  const authUser = userId || (await supabase.auth.getUser()).data.user?.id || null;
+  const { user, supabase } = await requireUserSession();
+  const authUser = userId || user.id;
+  const validated = updateProjectSchema.parse(data);
   
-  // Check old status
-  const { data: oldProject, error: oldError } = await supabase
-    .from('projects')
-    .select('status')
-    .eq('id', id)
-    .single();
-    
-  if (oldError) throw oldError;
-
   // Clean empty strings for optional UUID fields
-  const updateData = { ...data };
+  const updateData = { ...validated };
   ['producer_id', 'mix_engineer_id', 'mastering_engineer_id', 'artist_id'].forEach(field => {
-    if (updateData[field] === '') updateData[field] = null;
+    if ((updateData as any)[field] === '') (updateData as any)[field] = null;
   });
 
   const { data: project, error } = await supabase
@@ -112,14 +109,11 @@ export async function updateProject(id: string, data: any, userId?: string) {
 
   if (error) throw error;
 
-  // Status history is automatically recorded by the database trigger
-  // log_project_status_change_trigger (see 001_initial_schema.sql)
-
   return project;
 }
 
 export async function deleteProject(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('projects')
     .delete()

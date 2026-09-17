@@ -1,20 +1,22 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createContributionSchema, updateContributionSchema } from '@/lib/validation/finance';
+import { requireManagerAction } from '@/lib/auth/helpers';
 import type { Contribution, ContributionWithPerson } from '@/types';
 
 export async function getContributions(filters?: { 
   status?: string; 
   from?: string; 
-  to?: string;
+  to?: string; 
   page?: number;
   pageSize?: number;
 }) {
   const supabase = await createClient();
   let query = supabase.from('contributions').select(`
-    *,
+    id, person_id, amount, contribution_date, purpose, status, notes, created_at,
     person:artists!person_id(id, stage_name)
-  `);
+  `, { count: 'exact' });
 
   if (filters?.status) query = query.eq('status', filters.status);
   if (filters?.from) query = query.gte('contribution_date', filters.from);
@@ -28,18 +30,28 @@ export async function getContributions(filters?: {
     query = query.range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) {
     console.error('Error fetching contributions:', error);
     return [];
   }
-  return data;
+  const result = data || [];
+  (result as any).totalCount = count ?? result.length;
+  return result;
 }
 
-export async function createContribution(data: any, userId: string) {
-  const supabase = await createClient();
+export async function createContribution(data: any, userId?: string) {
+  const { user, supabase } = await requireManagerAction();
+  const authUser = userId || user.id;
   
-  const insertData = { ...data };
+  const rawData = { ...data };
+  if (rawData.date && !rawData.contribution_date) {
+    rawData.contribution_date = rawData.date;
+  }
+  delete rawData.date;
+
+  const validated = createContributionSchema.parse(rawData);
+  const insertData: any = { ...validated, created_by: authUser };
   if (insertData.person_id === '') insertData.person_id = null;
 
   const { data: contribution, error } = await supabase
@@ -53,9 +65,16 @@ export async function createContribution(data: any, userId: string) {
 }
 
 export async function updateContribution(id: string, data: any) {
-  const supabase = await createClient();
+  const { supabase } = await requireManagerAction();
   
-  const updateData = { ...data };
+  const rawData = { ...data };
+  if (rawData.date && !rawData.contribution_date) {
+    rawData.contribution_date = rawData.date;
+  }
+  delete rawData.date;
+
+  const validated = updateContributionSchema.parse(rawData);
+  const updateData: any = { ...validated };
   if (updateData.person_id === '') updateData.person_id = null;
 
   const { data: contribution, error } = await supabase
@@ -70,7 +89,7 @@ export async function updateContribution(id: string, data: any) {
 }
 
 export async function deleteContribution(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('contributions')
     .delete()

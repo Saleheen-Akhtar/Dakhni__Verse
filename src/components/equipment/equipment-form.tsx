@@ -72,7 +72,7 @@ export function EquipmentForm({ artists }: { artists: any[] }) {
             <FormField control={form.control} name="owner_id" render={({ field }) => (
               <FormItem><FormLabel>Owner</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl><SelectTrigger><SelectValue placeholder="Select owner" /></SelectTrigger></FormControl>
-                <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}</SelectContent>
               </Select><FormMessage /></FormItem>
             )} />
           )}

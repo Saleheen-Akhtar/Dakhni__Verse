@@ -43,7 +43,7 @@ export function SessionList({
     if (newTo) params.set('to', newTo);
     if (newPage > 1) params.set('page', String(newPage));
     const qs = params.toString();
-    router.push(`/sessions${qs ? `?${qs}` : ''}`);
+    router.replace(`/sessions${qs ? `?${qs}` : ''}`);
   };
 
   const handleArtistChange = (val: string) => {
@@ -102,7 +102,7 @@ export function SessionList({
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Artists" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Artists</SelectItem>
-            {artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+            {artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={handleTypeChange}>
@@ -140,6 +140,7 @@ export function SessionList({
           serverPagination={{
             currentPage,
             pageSize,
+            totalCount: (sessions as any).totalCount,
             onPageChange: (newPage) => updateFilters(artistFilter, typeFilter, dateFrom, dateTo, newPage),
           }}
         />

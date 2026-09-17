@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createReleaseSchema, updateReleaseSchema } from '@/lib/validation/release';
+import { requireUserSession, requireManagerAction } from '@/lib/auth/helpers';
 import type { Release, ReleaseWithRelations } from '@/types';
 export async function getArtistOptions() {
   const { getArtistOptions: getOpts } = await import('./artists');
@@ -16,10 +18,10 @@ export async function getReleases(filters?: {
 }) {
   const supabase = await createClient();
   let query = supabase.from('releases').select(`
-    *,
+    id, project_id, artist_id, title, status, release_date, distributor, isrc, spotify_url, apple_music_url, youtube_url, other_platform_url, notes, created_at,
     artist:artists!artist_id(id, stage_name),
     project:projects!project_id(id, title)
-  `);
+  `, { count: 'exact' });
 
   if (filters?.artist_id) query = query.eq('artist_id', filters.artist_id);
   if (filters?.status) query = query.eq('status', filters.status);
@@ -36,12 +38,14 @@ export async function getReleases(filters?: {
     query = query.range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) {
     console.error('Error fetching releases:', error);
     return [];
   }
-  return data;
+  const result = data || [];
+  (result as any).totalCount = count ?? result.length;
+  return result;
 }
 
 export async function getReleaseById(id: string) {
@@ -49,7 +53,7 @@ export async function getReleaseById(id: string) {
   const { data, error } = await supabase
     .from('releases')
     .select(`
-      *,
+      id, project_id, artist_id, title, status, release_date, distributor, isrc, spotify_url, apple_music_url, youtube_url, other_platform_url, notes, created_at,
       artist:artists!artist_id(id, stage_name),
       project:projects!project_id(id, title)
     `)
@@ -64,10 +68,11 @@ export async function getReleaseById(id: string) {
 }
 
 export async function createRelease(data: any, userId?: string) {
-  const supabase = await createClient();
-  const authUser = userId || (await supabase.auth.getUser()).data.user?.id || null;
+  const { user, supabase } = await requireUserSession();
+  const authUser = userId || user.id;
+  const validated = createReleaseSchema.parse(data);
   
-  const insertData = { ...data, created_by: authUser };
+  const insertData: any = { ...validated, created_by: authUser };
   if (insertData.project_id === '') insertData.project_id = null;
   if (insertData.artist_id === '') insertData.artist_id = null;
 
@@ -82,9 +87,10 @@ export async function createRelease(data: any, userId?: string) {
 }
 
 export async function updateRelease(id: string, data: any) {
-  const supabase = await createClient();
+  const { supabase } = await requireUserSession();
+  const validated = updateReleaseSchema.parse(data);
   
-  const updateData = { ...data };
+  const updateData: any = { ...validated };
   if (updateData.project_id === '') updateData.project_id = null;
   if (updateData.artist_id === '') updateData.artist_id = null;
 
@@ -100,7 +106,7 @@ export async function updateRelease(id: string, data: any) {
 }
 
 export async function deleteRelease(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('releases')
     .delete()

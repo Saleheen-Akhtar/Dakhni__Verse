@@ -311,7 +311,7 @@ export function PublicArtistForm() {
             </div>
           </CardContent>
           <div className="bg-neutral-100/70 border-t border-neutral-200 py-3 text-xs text-neutral-500">
-            Dakhni Verse — Bengaluru's Hip-Hop & Creative Collective
+            Dakhni Verse — Bengaluru&apos;s Hip-Hop &amp; Creative Collective
           </div>
         </Card>
       </div>

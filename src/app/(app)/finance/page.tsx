@@ -9,21 +9,27 @@ export default async function FinanceRoute({
 }) {
   await requireRole(['Manager']);
   const params = await searchParams;
+  const activeTab = params?.tab === 'expenses' ? 'expenses' : 'contributions';
+  const page = params?.page ? Number(params.page) : 1;
   
-  const [summaries, contributions, expenses, artists] = await Promise.all([
+  const [summaries, artists, activeData] = await Promise.all([
     getFinanceSummaries(),
-    getContributions({
-      status: params?.status,
-      page: params?.page ? Number(params.page) : undefined,
-      pageSize: 50,
-    }),
-    getExpenses({
-      category: params?.category,
-      page: params?.page ? Number(params.page) : undefined,
-      pageSize: 50,
-    }),
     getArtistOptions(),
+    activeTab === 'expenses'
+      ? getExpenses({
+          category: params?.category,
+          page,
+          pageSize: 50,
+        })
+      : getContributions({
+          status: params?.status,
+          page,
+          pageSize: 50,
+        }),
   ]);
+
+  const contributions = activeTab === 'expenses' ? [] : activeData;
+  const expenses = activeTab === 'expenses' ? activeData : [];
 
   return (
     <div className="space-y-6">
@@ -32,8 +38,8 @@ export default async function FinanceRoute({
         contributions={contributions} 
         expenses={expenses} 
         artists={artists} 
-        initialTab={params?.tab || 'contributions'}
-        currentPage={params?.page ? Number(params.page) : 1}
+        initialTab={activeTab}
+        currentPage={page}
       />
     </div>
   );

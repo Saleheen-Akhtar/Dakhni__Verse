@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createSessionSchema, updateSessionSchema } from '@/lib/validation/session';
+import { requireUserSession, requireManagerAction } from '@/lib/auth/helpers';
 import type { Session, SessionWithRelations } from '@/types';
 export async function getArtistOptions() {
   const { getArtistOptions: getOpts } = await import('./artists');
@@ -18,10 +20,11 @@ export async function getSessions(filters?: {
 }) {
   const supabase = await createClient();
   let query = supabase.from('sessions').select(`
-    *,
+    id, artist_id, project_id, session_type, engineer_id, session_date, start_time, end_time, duration_minutes, notes, created_at,
     artist:artists!artist_id(id, stage_name),
-    project:projects!project_id(id, title)
-  `);
+    project:projects!project_id(id, title),
+    engineer:artists!engineer_id(id, stage_name)
+  `, { count: 'exact' });
 
   if (filters?.artist_id) query = query.eq('artist_id', filters.artist_id);
   if (filters?.project_id) query = query.eq('project_id', filters.project_id);
@@ -39,24 +42,29 @@ export async function getSessions(filters?: {
     query = query.range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
     
   if (error) {
     console.error('Error fetching sessions:', error);
     return [];
   }
-  return data;
+  const result = data || [];
+  (result as any).totalCount = count ?? result.length;
+  return result;
 }
 
 export async function createSession(data: any, userId?: string) {
-  const supabase = await createClient();
-  const authUser = userId || (await supabase.auth.getUser()).data.user?.id || null;
+  const { user, supabase } = await requireUserSession();
+  const authUser = userId || user.id;
   
-  const insertData = { ...data, created_by: authUser };
-  if (insertData.date && !insertData.session_date) {
-    insertData.session_date = insertData.date;
+  const rawData = { ...data };
+  if (rawData.date && !rawData.session_date) {
+    rawData.session_date = rawData.date;
   }
-  delete insertData.date;
+  delete rawData.date;
+
+  const validated = createSessionSchema.parse(rawData);
+  const insertData: any = { ...validated, created_by: authUser };
 
   if (insertData.project_id === '') insertData.project_id = null;
   if (insertData.artist_id === '') insertData.artist_id = null;
@@ -73,13 +81,16 @@ export async function createSession(data: any, userId?: string) {
 }
 
 export async function updateSession(id: string, data: any) {
-  const supabase = await createClient();
+  const { supabase } = await requireUserSession();
   
-  const updateData = { ...data };
-  if (updateData.date && !updateData.session_date) {
-    updateData.session_date = updateData.date;
+  const rawData = { ...data };
+  if (rawData.date && !rawData.session_date) {
+    rawData.session_date = rawData.date;
   }
-  delete updateData.date;
+  delete rawData.date;
+
+  const validated = updateSessionSchema.parse(rawData);
+  const updateData: any = { ...validated };
 
   if (updateData.project_id === '') updateData.project_id = null;
   if (updateData.artist_id === '') updateData.artist_id = null;
@@ -97,7 +108,7 @@ export async function updateSession(id: string, data: any) {
 }
 
 export async function deleteSession(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('sessions')
     .delete()

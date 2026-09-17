@@ -53,7 +53,7 @@ export function FinancePage({
     const params = new URLSearchParams(window.location.search);
     params.set('tab', newTab);
     params.delete('page');
-    router.push(`/finance?${params.toString()}`);
+    router.replace(`/finance?${params.toString()}`);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -63,7 +63,7 @@ export function FinancePage({
     } else {
       params.delete('page');
     }
-    router.push(`/finance?${params.toString()}`);
+    router.replace(`/finance?${params.toString()}`);
   };
 
   const availableFunds = summaries.availableFunds ?? (summaries.confirmedContributions - summaries.totalExpenses);
@@ -104,7 +104,7 @@ export function FinancePage({
 
   const contribColumns = [
     { header: 'Date', accessorKey: 'date', cell: ({ row }: any) => formatDate(row.original.date) },
-    { header: 'Person', accessorKey: 'person.name', cell: ({ row }: any) => row.original.person?.name || '-' },
+    { header: 'Person', accessorKey: 'person.stage_name', cell: ({ row }: any) => row.original.person?.stage_name || row.original.person?.name || '-' },
     { header: 'Amount', accessorKey: 'amount', cell: ({ row }: any) => formatCurrency(row.original.amount) },
     { header: 'Purpose', accessorKey: 'purpose' },
     { 
@@ -164,7 +164,7 @@ export function FinancePage({
                     <FormField control={contributionForm.control} name="person_id" render={({ field }) => (
                       <FormItem><FormLabel>Person</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Select person" /></SelectTrigger></FormControl>
-                        <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+                        <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}</SelectContent>
                       </Select><FormMessage /></FormItem>
                     )} />
                     <FormField control={contributionForm.control} name="amount" render={({ field }) => (
@@ -199,6 +199,7 @@ export function FinancePage({
               serverPagination={{
                 currentPage: currentPage || 1,
                 pageSize: pageSize || 50,
+                totalCount: (contributions as any).totalCount,
                 onPageChange: handlePageChange,
               }}
             />
@@ -248,6 +249,7 @@ export function FinancePage({
               serverPagination={{
                 currentPage: currentPage || 1,
                 pageSize: pageSize || 50,
+                totalCount: (expenses as any).totalCount,
                 onPageChange: handlePageChange,
               }}
             />

@@ -142,6 +142,7 @@ export function ProjectList({
           serverPagination={{
             currentPage,
             pageSize,
+            totalCount: (projects as any).totalCount,
             onPageChange: (newPage) => updateFilters(search, statusFilter, artistFilter, newPage),
           }}
         />

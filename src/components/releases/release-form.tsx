@@ -38,7 +38,7 @@ export function ReleaseForm({ artists, projects }: { artists: any[]; projects: a
           <FormField control={form.control} name="artist_id" render={({ field }) => (
             <FormItem><FormLabel>Artist</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
               <FormControl><SelectTrigger><SelectValue placeholder="Select artist" /></SelectTrigger></FormControl>
-              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}</SelectContent>
             </Select><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="project_id" render={({ field }) => (

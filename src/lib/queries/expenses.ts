@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createExpenseSchema, updateExpenseSchema } from '@/lib/validation/finance';
+import { requireManagerAction } from '@/lib/auth/helpers';
 import type { Expense } from '@/types';
 
 export async function getExpenses(filters?: { 
@@ -11,7 +13,9 @@ export async function getExpenses(filters?: {
   pageSize?: number;
 }) {
   const supabase = await createClient();
-  let query = supabase.from('expenses').select('*');
+  let query = supabase.from('expenses').select(`
+    id, expense_date, category, amount, paid_by, description, receipt_url, notes, created_at
+  `, { count: 'exact' });
 
   if (filters?.category) query = query.eq('category', filters.category);
   if (filters?.from) query = query.gte('expense_date', filters.from);
@@ -25,19 +29,32 @@ export async function getExpenses(filters?: {
     query = query.range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) {
     console.error('Error fetching expenses:', error);
     return [];
   }
-  return data;
+  const result = data || [];
+  (result as any).totalCount = count ?? result.length;
+  return result;
 }
 
-export async function createExpense(data: any, userId: string) {
-  const supabase = await createClient();
+export async function createExpense(data: any, userId?: string) {
+  const { user, supabase } = await requireManagerAction();
+  const authUser = userId || user.id;
+
+  const rawData = { ...data };
+  if (rawData.date && !rawData.expense_date) {
+    rawData.expense_date = rawData.date;
+  }
+  delete rawData.date;
+
+  const validated = createExpenseSchema.parse(rawData);
+  const insertData = { ...validated, created_by: authUser };
+
   const { data: expense, error } = await supabase
     .from('expenses')
-    .insert([data])
+    .insert([insertData])
     .select()
     .single();
 
@@ -46,10 +63,20 @@ export async function createExpense(data: any, userId: string) {
 }
 
 export async function updateExpense(id: string, data: any) {
-  const supabase = await createClient();
+  const { supabase } = await requireManagerAction();
+
+  const rawData = { ...data };
+  if (rawData.date && !rawData.expense_date) {
+    rawData.expense_date = rawData.date;
+  }
+  delete rawData.date;
+
+  const validated = updateExpenseSchema.parse(rawData);
+  const updateData = { ...validated };
+
   const { data: expense, error } = await supabase
     .from('expenses')
-    .update(data)
+    .update(updateData)
     .eq('id', id)
     .select()
     .single();
@@ -59,7 +86,7 @@ export async function updateExpense(id: string, data: any) {
 }
 
 export async function deleteExpense(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('expenses')
     .delete()
