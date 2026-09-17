@@ -77,19 +77,19 @@ export function ProjectDetail({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-secondary-text">Artist</p>
-                <p className="font-medium">{project.artist?.name || 'Unassigned'}</p>
+                <p className="font-medium">{project.artist?.stage_name || project.artist?.name || 'Unassigned'}</p>
               </div>
               <div>
                 <p className="text-sm text-secondary-text">Producer</p>
-                <p className="font-medium">{project.producer?.name || 'Unassigned'}</p>
+                <p className="font-medium">{project.producer?.stage_name || project.producer?.name || 'Unassigned'}</p>
               </div>
               <div>
                 <p className="text-sm text-secondary-text">Mix Engineer</p>
-                <p className="font-medium">{project.mix_engineer?.name || 'Unassigned'}</p>
+                <p className="font-medium">{project.mix_engineer?.stage_name || project.mix_engineer?.name || 'Unassigned'}</p>
               </div>
               <div>
                 <p className="text-sm text-secondary-text">Mastering Engineer</p>
-                <p className="font-medium">{project.mastering_engineer?.name || 'Unassigned'}</p>
+                <p className="font-medium">{project.mastering_engineer?.stage_name || project.mastering_engineer?.name || 'Unassigned'}</p>
               </div>
               <div>
                 <p className="text-sm text-secondary-text">Target Release</p>
@@ -136,8 +136,8 @@ export function ProjectDetail({
                   <div key={i} className="flex gap-3">
                     <div className="w-2 h-2 mt-2 rounded-full bg-primary-red" />
                     <div>
-                      <p className="font-medium text-sm">{record.status}</p>
-                      <p className="text-xs text-secondary-text">{formatDate(record.changed_at)} by {record.changed_by?.name}</p>
+                      <p className="font-medium text-sm">{record.new_status || record.status}</p>
+                      <p className="text-xs text-secondary-text">{formatDate(record.changed_at)}{record.user?.name ? ` by ${record.user.name}` : record.changed_by?.name ? ` by ${record.changed_by.name}` : ''}</p>
                     </div>
                   </div>
                 ))}

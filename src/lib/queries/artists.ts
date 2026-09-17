@@ -37,8 +37,10 @@ export async function getArtists(filters?: { status?: string; role?: string; sea
   }
 
   if (filters?.search) {
-    const s = filters.search.trim();
-    query = query.or(`stage_name.ilike.%${s}%,legal_name.ilike.%${s}%`);
+    const s = filters.search.trim().replace(/[%_(),]/g, '');
+    if (s) {
+      query = query.or(`stage_name.ilike.%${s}%,legal_name.ilike.%${s}%`);
+    }
   }
 
   query = query.order('created_at', { ascending: false });

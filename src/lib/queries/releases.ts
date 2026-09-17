@@ -23,7 +23,10 @@ export async function getReleases(filters?: {
 
   if (filters?.artist_id) query = query.eq('artist_id', filters.artist_id);
   if (filters?.status) query = query.eq('status', filters.status);
-  if (filters?.search) query = query.ilike('title', `%${filters.search}%`);
+  if (filters?.search) {
+    const s = filters.search.trim().replace(/[%_]/g, '\\$&');
+    if (s) query = query.ilike('title', `%${s}%`);
+  }
 
   query = query.order('created_at', { ascending: false });
 

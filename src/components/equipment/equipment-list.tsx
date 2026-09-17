@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState } from '@/components/ui/empty-state';
 
 import { useRouter } from 'next/navigation';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 
 interface EquipmentListProps {
   equipment: any[];
@@ -33,7 +33,7 @@ export function EquipmentList({
     if (newOwner && newOwner !== 'all') params.set('owner_type', newOwner);
     if (newPage > 1) params.set('page', String(newPage));
     const qs = params.toString();
-    router.push(`/equipment${qs ? `?${qs}` : ''}`);
+    router.replace(`/equipment${qs ? `?${qs}` : ''}`);
   };
 
   const handleSearchChange = (val: string) => {
@@ -66,10 +66,10 @@ export function EquipmentList({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
-        <Input
+        <SearchInput
           placeholder="Search equipment..."
           value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
+          onChange={(val: any) => handleSearchChange(typeof val === 'string' ? val : val?.target?.value || '')}
           className="w-full sm:w-64"
         />
         <Select value={ownerFilter} onValueChange={handleOwnerChange}>

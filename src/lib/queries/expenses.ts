@@ -71,29 +71,64 @@ export async function deleteExpense(id: string) {
 
 import { measureQuery } from '@/lib/telemetry/perf';
 
-export async function getExpenseSummary(from?: string, to?: string) {
-  return measureQuery('getExpenseSummary', async () => {
+export interface ExpenseCategoryBreakdown {
+  name: string;
+  value: number;
+}
+
+export async function getExpenseBreakdown(from?: string, to?: string): Promise<ExpenseCategoryBreakdown[]> {
+  return measureQuery('getExpenseBreakdown', async () => {
     const supabase = await createClient();
-    let query = supabase.from('expenses').select('amount, category');
-    
+
+    // 1. Try native database-side RPC aggregation (fastest, pre-sorted)
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_expense_breakdown_rpc', {
+        p_from: from || null,
+        p_to: to || null,
+      });
+
+      if (!rpcError && Array.isArray(rpcData)) {
+        return rpcData.map((item: any) => ({
+          name: String(item.name || 'Other'),
+          value: Number(item.value) || 0,
+        }));
+      }
+    } catch {
+      // Fallback
+    }
+
+    // 2. Bounded fallback
+    let query = supabase.from('expenses').select('amount, category').limit(500);
     if (from) query = query.gte('expense_date', from);
     if (to) query = query.lte('expense_date', to);
-    
+
     const { data, error } = await query;
-    
-    const summary = { total: 0, byCategory: {} as Record<string, number> };
-    
-    if (error || !data) {
-      console.error('Error fetching expense summary:', error);
-      return summary;
-    }
-    
+    if (error || !data) return [];
+
+    const map: Record<string, number> = {};
     data.forEach(item => {
       const amount = Number(item.amount) || 0;
-      summary.total += amount;
-      summary.byCategory[item.category] = (summary.byCategory[item.category] || 0) + amount;
+      map[item.category] = (map[item.category] || 0) + amount;
     });
-    
-    return summary;
+
+    return Object.entries(map)
+      .filter(([_, value]) => value > 0)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  });
+}
+
+export async function getExpenseSummary(from?: string, to?: string) {
+  return measureQuery('getExpenseSummary', async () => {
+    const breakdown = await getExpenseBreakdown(from, to);
+    const byCategory: Record<string, number> = {};
+    let total = 0;
+
+    breakdown.forEach((item) => {
+      byCategory[item.name] = item.value;
+      total += item.value;
+    });
+
+    return { total, byCategory };
   });
 }

@@ -21,7 +21,10 @@ export async function getEquipment(filters?: {
 
   if (filters?.owner_type) query = query.eq('owner_type', filters.owner_type);
   if (filters?.search) {
-    query = query.or(`name.ilike.%${filters.search}%,brand.ilike.%${filters.search}%`);
+    const s = filters.search.trim().replace(/[%_(),]/g, '');
+    if (s) {
+      query = query.or(`name.ilike.%${s}%,brand.ilike.%${s}%`);
+    }
   }
 
   query = query.order('created_at', { ascending: false });

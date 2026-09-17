@@ -14,7 +14,10 @@ export async function getProjects(filters?: { artist_id?: string; producer_id?: 
   if (filters?.artist_id && filters.artist_id !== 'all') query = query.eq('artist_id', filters.artist_id);
   if (filters?.producer_id && filters.producer_id !== 'all') query = query.eq('producer_id', filters.producer_id);
   if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
-  if (filters?.search) query = query.ilike('title', `%${filters.search.trim()}%`);
+  if (filters?.search) {
+    const s = filters.search.trim().replace(/[%_]/g, '\\$&');
+    if (s) query = query.ilike('title', `%${s}%`);
+  }
 
   query = query.order('created_at', { ascending: false });
 
@@ -37,7 +40,7 @@ export async function getProjectById(id: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('projects')
-    .select(`*, artist:artists!artist_id(id, stage_name), producer:artists!producer_id(id, stage_name), mix_engineer:artists!mix_engineer_id(id, stage_name), mastering_engineer:artists!mastering_engineer_id(id, stage_name)`)
+    .select(`id, title, status, notes, target_release_date, release_date, created_at, updated_at, artist_id, producer_id, mix_engineer_id, mastering_engineer_id, artist:artists!artist_id(id, stage_name, legal_name, profile_image_url), producer:artists!producer_id(id, stage_name), mix_engineer:artists!mix_engineer_id(id, stage_name), mastering_engineer:artists!mastering_engineer_id(id, stage_name)`)
     .eq('id', id)
     .single();
 
@@ -130,7 +133,7 @@ export async function getProjectStatusHistory(projectId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('project_status_history')
-    .select('*')
+    .select('id, project_id, old_status, new_status, changed_at, changed_by, user:users!changed_by(name)')
     .eq('project_id', projectId)
     .order('changed_at', { ascending: false });
 

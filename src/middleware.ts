@@ -2,8 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  // Update session and retrieve authenticated user in a single network pass
-  const { supabaseResponse, user } = await updateSession(request)
   const { pathname } = request.nextUrl
 
   // Publicly accessible routes
@@ -13,6 +11,24 @@ export async function middleware(request: NextRequest) {
     pathname === '/artist-form' ||
     pathname.startsWith('/join/') ||
     pathname.startsWith('/api/public')
+
+  // Check whether any Supabase auth cookies exist before running network auth
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'))
+
+  // 1. If public route and not /login, bypass auth lookup completely
+  if (isPublicRoute && pathname !== '/login') {
+    return NextResponse.next({ request })
+  }
+
+  // 2. If visiting /login without any auth cookies, bypass auth lookup
+  if (pathname === '/login' && !hasAuthCookie) {
+    return NextResponse.next({ request })
+  }
+
+  // 3. For protected routes or /login with an auth cookie, update session
+  const { supabaseResponse, user } = await updateSession(request)
 
   if (!user && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url))

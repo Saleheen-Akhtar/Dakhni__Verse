@@ -3,7 +3,7 @@ import { getCurrentUserProfile } from "@/lib/auth/helpers";
 import { getDashboardKPIs } from "@/lib/calculations/kpi";
 import { getStudioKPIs } from "@/lib/calculations/studio";
 import { getRecentActivity } from "@/lib/activity/log";
-import { getExpenseSummary } from "@/lib/queries/expenses";
+import { getExpenseBreakdown } from "@/lib/queries/expenses";
 import { formatCurrency } from "@/lib/utils/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICard } from "@/components/ui/kpi-card";
@@ -217,14 +217,9 @@ async function AsyncExpenseBreakdownSection({
 }) {
   const fromStr = dateRange.from.toISOString().split("T")[0];
   const toStr = dateRange.to.toISOString().split("T")[0];
-  const expenseSummary = await getExpenseSummary(fromStr, toStr);
+  const expenseData = await getExpenseBreakdown(fromStr, toStr);
 
-  const initialExpenseData = Object.entries(expenseSummary.byCategory || {})
-    .filter(([_, value]) => value > 0)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
-
-  return <ExpenseBreakdownChart data={initialExpenseData} />;
+  return <ExpenseBreakdownChart data={expenseData} />;
 }
 
 async function AsyncRecentActivitySection() {

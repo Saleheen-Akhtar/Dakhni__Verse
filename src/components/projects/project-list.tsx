@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatDate } from '@/lib/utils/format';
@@ -39,7 +39,7 @@ export function ProjectList({
     if (newArtist && newArtist !== 'all') params.set('artist_id', newArtist);
     if (newPage > 1) params.set('page', String(newPage));
     const qs = params.toString();
-    router.push(`/projects${qs ? `?${qs}` : ''}`);
+    router.replace(`/projects${qs ? `?${qs}` : ''}`);
   };
 
   const handleSearchChange = (val: string) => {
@@ -96,10 +96,10 @@ export function ProjectList({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-4">
-        <Input 
+        <SearchInput 
           placeholder="Search by title..." 
           value={search} 
-          onChange={(e) => handleSearchChange(e.target.value)}
+          onChange={(val: any) => handleSearchChange(typeof val === 'string' ? val : val?.target?.value || '')}
           className="max-w-sm"
         />
         <Select value={statusFilter} onValueChange={handleStatusChange}>

@@ -35,7 +35,7 @@ export function ArtistDirectory({
     if (status && status !== 'All') params.set('status', status);
     if (page > 1) params.set('page', String(page));
     const qs = params.toString();
-    router.push(`/artists${qs ? `?${qs}` : ''}`);
+    router.replace(`/artists${qs ? `?${qs}` : ''}`);
   };
 
   const handleStatusChange = (status: string) => {

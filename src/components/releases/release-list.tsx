@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatDate } from '@/lib/utils/format';
 
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 
 interface ReleaseListProps {
   releases: any[];
@@ -40,7 +40,7 @@ export function ReleaseList({
     if (newArtist && newArtist !== 'all') params.set('artist_id', newArtist);
     if (newPage > 1) params.set('page', String(newPage));
     const qs = params.toString();
-    router.push(`/releases${qs ? `?${qs}` : ''}`);
+    router.replace(`/releases${qs ? `?${qs}` : ''}`);
   };
 
   const handleSearchChange = (val: string) => {
@@ -90,10 +90,10 @@ export function ReleaseList({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
-        <Input
+        <SearchInput
           placeholder="Search releases..."
           value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
+          onChange={(val: any) => handleSearchChange(typeof val === 'string' ? val : val?.target?.value || '')}
           className="w-full sm:w-64"
         />
         <Select value={statusFilter} onValueChange={handleStatusChange}>

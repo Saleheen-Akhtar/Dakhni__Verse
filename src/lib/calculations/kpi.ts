@@ -232,8 +232,11 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
         availableFunds: Number(rpcData.availableFunds || 0),
       };
     }
-  } catch {
-    // Graceful fallback to optimized queries below
+    if (rpcError) {
+      console.warn("get_dashboard_kpis_rpc failed, falling back to queries:", rpcError.message);
+    }
+  } catch (err: any) {
+    console.warn("get_dashboard_kpis_rpc exception, falling back to queries:", err?.message);
   }
 
   let releasesQuery = supabase
@@ -243,11 +246,13 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
 
   let sessionsQuery = supabase
     .from("sessions")
-    .select("duration_minutes");
+    .select("duration_minutes")
+    .limit(500);
 
   let expensesQuery = supabase
     .from("expenses")
-    .select("amount");
+    .select("amount")
+    .limit(500);
 
   const productionStatuses = ["Production", "Recording", "Editing", "Mixing", "Mastering"];
 
@@ -266,12 +271,14 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
   let confirmedContribQuery = supabase
     .from("contributions")
     .select("amount")
-    .eq("status", "Confirmed");
+    .eq("status", "Confirmed")
+    .limit(500);
 
   let pendingContribQuery = supabase
     .from("contributions")
     .select("amount")
-    .eq("status", "Pending");
+    .eq("status", "Pending")
+    .limit(500);
 
   if (dateRange) {
     const fromStr = dateRange.from.toISOString().split("T")[0];

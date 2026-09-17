@@ -40,13 +40,16 @@ export async function getStudioKPIs(dateRange?: DateRange): Promise<StudioKPIs> 
     if (!rpcError && rpcData) {
       return rpcData as StudioKPIs;
     }
-  } catch {
-    // Graceful fallback to client query
+    if (rpcError) {
+      console.warn("get_studio_kpis_rpc failed, falling back to query:", rpcError.message);
+    }
+  } catch (err: any) {
+    console.warn("get_studio_kpis_rpc exception, falling back to query:", err?.message);
   }
 
   let query = supabase.from("sessions").select(
     "session_type, duration_minutes, artist:artists!artist_id(stage_name)"
-  );
+  ).limit(500);
 
   if (dateRange) {
     query = query
