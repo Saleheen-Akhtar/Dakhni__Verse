@@ -4,8 +4,10 @@ import { SettingsPage } from '@/components/settings/settings-page';
 
 export default async function SettingsRoute() {
   await requireRole(['Manager']);
-  const producers = await getProducers();
-  const targets = await getTargets();
+  const [producers, targets] = await Promise.all([
+    getProducers(),
+    getTargets(),
+  ]);
 
   return <SettingsPage producers={producers} initialTargets={targets} />;
 }

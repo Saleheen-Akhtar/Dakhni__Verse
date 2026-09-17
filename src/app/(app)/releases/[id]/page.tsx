@@ -8,10 +8,11 @@ export default async function ReleaseDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAuth();
   const { id } = await params;
-  const user = await getCurrentUserProfile();
-  const release = await getReleaseById(id);
+  const [user, release] = await Promise.all([
+    getCurrentUserProfile(),
+    getReleaseById(id),
+  ]);
   
   if (!release) notFound();
 

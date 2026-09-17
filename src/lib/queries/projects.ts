@@ -9,7 +9,7 @@ export async function getArtistOptions() {
 
 export async function getProjects(filters?: { artist_id?: string; producer_id?: string; status?: string; search?: string; page?: number; pageSize?: number }) {
   const supabase = await createClient();
-  let query = supabase.from('projects').select(`*, artist:artists!artist_id(id, stage_name), producer:artists!producer_id(id, stage_name), mix_engineer:artists!mix_engineer_id(id, stage_name), mastering_engineer:artists!mastering_engineer_id(id, stage_name)`);
+  let query = supabase.from('projects').select(`id, title, status, target_release_date, created_at, artist_id, producer_id, artist:artists!artist_id(id, stage_name), producer:artists!producer_id(id, stage_name)`);
 
   if (filters?.artist_id && filters.artist_id !== 'all') query = query.eq('artist_id', filters.artist_id);
   if (filters?.producer_id && filters.producer_id !== 'all') query = query.eq('producer_id', filters.producer_id);
@@ -46,12 +46,7 @@ export async function getProjectById(id: string) {
     return null;
   }
 
-  const statusHistory = await getProjectStatusHistory(id);
-
-  return {
-    ...data,
-    status_history: statusHistory
-  };
+  return data;
 }
 
 export async function createProject(data: any, userId?: string) {

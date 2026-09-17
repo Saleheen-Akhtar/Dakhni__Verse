@@ -15,15 +15,15 @@ export default async function ArtistProfilePage({
     getCurrentUserProfile(),
   ]);
 
-  const artist = await getArtistById(id);
-  if (!artist) {
-    notFound();
-  }
-
-  const [kpis, linkedUser] = await Promise.all([
+  const [artist, kpis, linkedUser] = await Promise.all([
+    getArtistById(id),
     getArtistKPIs(id),
     getLinkedUserForArtist(id),
   ]);
+
+  if (!artist) {
+    notFound();
+  }
   
   const isManager = user?.role === 'Manager';
   const canEdit = isManager || user?.artist_id === artist.id;

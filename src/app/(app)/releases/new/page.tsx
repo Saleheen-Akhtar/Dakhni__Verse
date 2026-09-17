@@ -5,8 +5,10 @@ import { ReleaseForm } from '@/components/releases/release-form';
 
 export default async function NewReleasePage() {
   await requireAuth();
-  const artists = await getArtistOptions();
-  const projects = await getProjects();
+  const [artists, projects] = await Promise.all([
+    getArtistOptions(),
+    getProjects(),
+  ]);
 
   return (
     <div className="max-w-2xl mx-auto py-8">
