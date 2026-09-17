@@ -357,8 +357,11 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
       p_social_links: socialLinks,
     });
 
-    if (!rpcError && rpcResult?.success) {
+    if (rpcError) {
+      console.log('submit_public_artist RPC error:', rpcError);
+    } else if (rpcResult?.success) {
       revalidatePath('/artists');
+      revalidatePath('/artists/review');
       revalidatePath('/dashboard');
       revalidatePath('/projects');
       revalidatePath('/sessions');
@@ -367,8 +370,8 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
       }
       return rpcResult;
     }
-  } catch {
-    // If RPC doesn't exist or fails, fall back to direct queries below
+  } catch (rpcCatchErr) {
+    console.log('RPC catch error:', rpcCatchErr);
   }
 
   // 2. Fallback: Search for existing artist by email, stage name, or phone
