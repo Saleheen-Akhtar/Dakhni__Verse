@@ -7,12 +7,54 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatDate } from '@/lib/utils/format';
 
-export function ReleaseList({ releases, artists }: { releases: any[]; artists: any[] }) {
+import { Input } from '@/components/ui/input';
+
+interface ReleaseListProps {
+  releases: any[];
+  artists: any[];
+  initialSearch?: string;
+  initialStatus?: string;
+  initialArtist?: string;
+}
+
+export function ReleaseList({
+  releases,
+  artists,
+  initialSearch = '',
+  initialStatus = 'all',
+  initialArtist = 'all',
+}: ReleaseListProps) {
   const router = useRouter();
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [artistFilter, setArtistFilter] = useState('all');
+  const [search, setSearch] = useState(initialSearch);
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [artistFilter, setArtistFilter] = useState(initialArtist);
+
+  const updateFilters = (newSearch: string, newStatus: string, newArtist: string) => {
+    const params = new URLSearchParams();
+    if (newSearch) params.set('search', newSearch);
+    if (newStatus && newStatus !== 'all') params.set('status', newStatus);
+    if (newArtist && newArtist !== 'all') params.set('artist_id', newArtist);
+    const qs = params.toString();
+    router.push(`/releases${qs ? `?${qs}` : ''}`);
+  };
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    updateFilters(val, statusFilter, artistFilter);
+  };
+
+  const handleStatusChange = (val: string) => {
+    setStatusFilter(val);
+    updateFilters(search, val, artistFilter);
+  };
+
+  const handleArtistChange = (val: string) => {
+    setArtistFilter(val);
+    updateFilters(search, statusFilter, val);
+  };
 
   const filtered = releases.filter(r => {
+    if (search && !r.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (statusFilter !== 'all' && r.status !== statusFilter) return false;
     if (artistFilter !== 'all' && r.artist_id !== artistFilter) return false;
     return true;
@@ -29,7 +71,11 @@ export function ReleaseList({ releases, artists }: { releases: any[]; artists: a
 
   const columns = [
     { header: 'Title', accessorKey: 'title' },
-    { header: 'Artist', accessorKey: 'artist.name', cell: ({ row }: any) => row.original.artist?.stage_name || row.original.artist?.name || '-' },
+    { 
+      header: 'Artist', 
+      accessorKey: 'artist.stage_name', 
+      cell: ({ row }: any) => row.original.artist?.stage_name || row.original.artist?.name || '-' 
+    },
     { 
       header: 'Status', 
       accessorKey: 'status',
@@ -45,8 +91,14 @@ export function ReleaseList({ releases, artists }: { releases: any[]; artists: a
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+      <div className="flex flex-wrap items-center gap-4">
+        <Input
+          placeholder="Search releases..."
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="w-full sm:w-64"
+        />
+        <Select value={statusFilter} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Statuses" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
@@ -55,7 +107,7 @@ export function ReleaseList({ releases, artists }: { releases: any[]; artists: a
             <SelectItem value="Released">Released</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={artistFilter} onValueChange={setArtistFilter}>
+        <Select value={artistFilter} onValueChange={handleArtistChange}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Artists" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Artists</SelectItem>
@@ -65,7 +117,7 @@ export function ReleaseList({ releases, artists }: { releases: any[]; artists: a
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState title="No releases yet" description="Releases will appear here once added." />
+        <EmptyState title="No releases yet" description="Releases matching your filters will appear here once added." />
       ) : (
         <DataTable 
           columns={columns} 

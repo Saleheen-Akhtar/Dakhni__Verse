@@ -26,6 +26,7 @@ export function FinancePage({
   contributions,
   expenses,
   artists,
+  initialTab = 'contributions',
 }: {
   summaries: {
     confirmedContributions: number;
@@ -36,13 +37,21 @@ export function FinancePage({
   contributions: any[];
   expenses: any[];
   artists: any[];
+  initialTab?: string;
 }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('contributions');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isAddContributionOpen, setIsAddContributionOpen] = useState(false);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
 
-  const availableFunds = summaries.confirmedContributions - summaries.totalExpenses;
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', newTab);
+    router.push(`/finance?${params.toString()}`);
+  };
+
+  const availableFunds = summaries.availableFunds ?? (summaries.confirmedContributions - summaries.totalExpenses);
 
   const contributionForm = useForm({
     resolver: zodResolver(contributionSchema),
@@ -121,7 +130,7 @@ export function FinancePage({
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="contributions">Contributions</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>

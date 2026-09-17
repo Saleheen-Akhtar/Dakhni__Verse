@@ -6,9 +6,20 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
-export default async function ReleasesPage() {
+export default async function ReleasesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ artist_id?: string; status?: string; search?: string; page?: string }>;
+}) {
+  const params = await searchParams;
   const [releases, artists] = await Promise.all([
-    getReleases(),
+    getReleases({
+      artist_id: params?.artist_id,
+      status: params?.status,
+      search: params?.search,
+      page: params?.page ? Number(params.page) : undefined,
+      pageSize: 50,
+    }),
     getArtistOptions(),
   ]);
 
@@ -23,7 +34,13 @@ export default async function ReleasesPage() {
           </Link>
         </Button>
       </div>
-      <ReleaseList releases={releases} artists={artists} />
+      <ReleaseList 
+        releases={releases} 
+        artists={artists} 
+        initialSearch={params?.search || ''}
+        initialStatus={params?.status || 'all'}
+        initialArtist={params?.artist_id || 'all'}
+      />
     </div>
   );
 }

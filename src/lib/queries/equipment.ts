@@ -7,7 +7,12 @@ export async function getArtistOptions() {
   return getOpts();
 }
 
-export async function getEquipment(filters?: { owner_type?: string; search?: string }) {
+export async function getEquipment(filters?: { 
+  owner_type?: string; 
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const supabase = await createClient();
   let query = supabase.from('equipment').select(`
     *,
@@ -15,9 +20,19 @@ export async function getEquipment(filters?: { owner_type?: string; search?: str
   `);
 
   if (filters?.owner_type) query = query.eq('owner_type', filters.owner_type);
-  if (filters?.search) query = query.ilike('name', `%${filters.search}%`);
+  if (filters?.search) {
+    query = query.or(`name.ilike.%${filters.search}%,brand.ilike.%${filters.search}%`);
+  }
 
-  const { data, error } = await query.order('created_at', { ascending: false });
+  query = query.order('created_at', { ascending: false });
+
+  if (filters?.page !== undefined) {
+    const pageSize = filters.pageSize || 50;
+    const pageIndex = Math.max(1, filters.page) - 1;
+    query = query.range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
+  }
+
+  const { data, error } = await query;
   if (error) {
     console.error('Error fetching equipment:', error);
     return [];

@@ -1,33 +1,29 @@
 import { requireRole } from '@/lib/auth/helpers';
-import { getContributions, getExpenses, getArtistOptions } from '@/lib/queries/finance';
+import { getContributions, getExpenses, getArtistOptions, getFinanceSummaries } from '@/lib/queries/finance';
 import { FinancePage } from '@/components/finance/finance-page';
 
-export default async function FinanceRoute() {
+export default async function FinanceRoute({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string; status?: string; category?: string; page?: string }>;
+}) {
   await requireRole(['Manager']);
+  const params = await searchParams;
   
-  const [contributions, expenses, artists] = await Promise.all([
-    getContributions(),
-    getExpenses(),
+  const [summaries, contributions, expenses, artists] = await Promise.all([
+    getFinanceSummaries(),
+    getContributions({
+      status: params?.status,
+      page: params?.page ? Number(params.page) : undefined,
+      pageSize: 50,
+    }),
+    getExpenses({
+      category: params?.category,
+      page: params?.page ? Number(params.page) : undefined,
+      pageSize: 50,
+    }),
     getArtistOptions(),
   ]);
-
-  const confirmedContributions = (contributions || [])
-    .filter((c: any) => c.status === 'Confirmed')
-    .reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
-
-  const pendingContributions = (contributions || [])
-    .filter((c: any) => c.status === 'Pending')
-    .reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0);
-
-  const totalExpenses = (expenses || [])
-    .reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
-
-  const summaries = {
-    confirmedContributions,
-    pendingContributions,
-    totalExpenses,
-    availableFunds: confirmedContributions - totalExpenses,
-  };
 
   return (
     <div className="space-y-6">
@@ -36,6 +32,7 @@ export default async function FinanceRoute() {
         contributions={contributions} 
         expenses={expenses} 
         artists={artists} 
+        initialTab={params?.tab || 'contributions'}
       />
     </div>
   );

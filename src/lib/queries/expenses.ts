@@ -3,7 +3,13 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Expense } from '@/types';
 
-export async function getExpenses(filters?: { category?: string; from?: string; to?: string }) {
+export async function getExpenses(filters?: { 
+  category?: string; 
+  from?: string; 
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const supabase = await createClient();
   let query = supabase.from('expenses').select('*');
 
@@ -11,7 +17,15 @@ export async function getExpenses(filters?: { category?: string; from?: string; 
   if (filters?.from) query = query.gte('expense_date', filters.from);
   if (filters?.to) query = query.lte('expense_date', filters.to);
 
-  const { data, error } = await query.order('expense_date', { ascending: false });
+  query = query.order('expense_date', { ascending: false });
+
+  if (filters?.page !== undefined) {
+    const pageSize = filters.pageSize || 50;
+    const pageIndex = Math.max(1, filters.page) - 1;
+    query = query.range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
+  }
+
+  const { data, error } = await query;
   if (error) {
     console.error('Error fetching expenses:', error);
     return [];

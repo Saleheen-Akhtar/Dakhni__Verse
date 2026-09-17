@@ -7,7 +7,13 @@ export async function getArtistOptions() {
   return getOpts();
 }
 
-export async function getReleases(filters?: { artist_id?: string; status?: string; search?: string }) {
+export async function getReleases(filters?: { 
+  artist_id?: string; 
+  status?: string; 
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const supabase = await createClient();
   let query = supabase.from('releases').select(`
     *,
@@ -19,7 +25,15 @@ export async function getReleases(filters?: { artist_id?: string; status?: strin
   if (filters?.status) query = query.eq('status', filters.status);
   if (filters?.search) query = query.ilike('title', `%${filters.search}%`);
 
-  const { data, error } = await query.order('created_at', { ascending: false });
+  query = query.order('created_at', { ascending: false });
+
+  if (filters?.page !== undefined) {
+    const pageSize = filters.pageSize || 50;
+    const pageIndex = Math.max(1, filters.page) - 1;
+    query = query.range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
+  }
+
+  const { data, error } = await query;
   if (error) {
     console.error('Error fetching releases:', error);
     return [];

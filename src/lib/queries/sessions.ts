@@ -7,7 +7,15 @@ export async function getArtistOptions() {
   return getOpts();
 }
 
-export async function getSessions(filters?: { artist_id?: string; project_id?: string; session_type?: string; from?: string; to?: string }) {
+export async function getSessions(filters?: { 
+  artist_id?: string; 
+  project_id?: string; 
+  session_type?: string; 
+  from?: string; 
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const supabase = await createClient();
   let query = supabase.from('sessions').select(`
     *,
@@ -21,9 +29,17 @@ export async function getSessions(filters?: { artist_id?: string; project_id?: s
   if (filters?.from) query = query.gte('session_date', filters.from);
   if (filters?.to) query = query.lte('session_date', filters.to);
 
-  const { data, error } = await query
+  query = query
     .order('session_date', { ascending: false })
     .order('start_time', { ascending: false });
+
+  if (filters?.page !== undefined) {
+    const pageSize = filters.pageSize || 50;
+    const pageIndex = Math.max(1, filters.page) - 1;
+    query = query.range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
+  }
+
+  const { data, error } = await query;
     
   if (error) {
     console.error('Error fetching sessions:', error);

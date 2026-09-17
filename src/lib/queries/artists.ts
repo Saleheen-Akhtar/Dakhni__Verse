@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
+import { checkRateLimit } from '@/lib/security/rate-limit';
 import type { Artist, ArtistWithProfile, ArtistSocialLink, ArtistMusicProfile } from '@/types';
 
 function getAdminSupabase() {
@@ -355,6 +357,23 @@ export async function getArtistStats(artistId: string) {
 }
 
 export async function submitArtistSelfService(data: any): Promise<{ success: boolean; action?: string; artist_id?: string; stage_name?: string; is_reapplication?: boolean; error?: string }> {
+  try {
+    const reqHeaders = await headers();
+    const forwardedFor = reqHeaders.get('x-forwarded-for');
+    const realIp = reqHeaders.get('x-real-ip');
+    const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : (realIp || 'anonymous');
+    
+    const rateCheck = checkRateLimit(`submit_artist:${clientIp}`, 5, 10 * 60 * 1000);
+    if (!rateCheck.success) {
+      return {
+        success: false,
+        error: 'Too many submissions from this connection. Please wait 10 minutes before trying again.',
+      };
+    }
+  } catch {
+    // If headers() is unavailable in certain environments, continue
+  }
+
   const adminClient = getAdminSupabase();
   const supabase = adminClient || (await createClient());
 

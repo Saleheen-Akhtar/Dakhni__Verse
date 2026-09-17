@@ -6,9 +6,19 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
-export default async function EquipmentPage() {
+export default async function EquipmentPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ owner_type?: string; search?: string; page?: string }>;
+}) {
   await requireAuth();
-  const equipment = await getEquipment();
+  const params = await searchParams;
+  const equipment = await getEquipment({
+    owner_type: params?.owner_type,
+    search: params?.search,
+    page: params?.page ? Number(params.page) : undefined,
+    pageSize: 50,
+  });
 
   return (
     <div className="space-y-6">
@@ -21,7 +31,11 @@ export default async function EquipmentPage() {
           </Link>
         </Button>
       </div>
-      <EquipmentList equipment={equipment} />
+      <EquipmentList 
+        equipment={equipment} 
+        initialSearch={params?.search || ''}
+        initialOwnerType={params?.owner_type || 'all'}
+      />
     </div>
   );
 }

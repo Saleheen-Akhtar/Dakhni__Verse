@@ -6,9 +6,22 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
-export default async function SessionsPage() {
+export default async function SessionsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ artist_id?: string; project_id?: string; session_type?: string; from?: string; to?: string; page?: string }>;
+}) {
+  const params = await searchParams;
   const [sessions, artists] = await Promise.all([
-    getSessions(),
+    getSessions({
+      artist_id: params?.artist_id,
+      project_id: params?.project_id,
+      session_type: params?.session_type,
+      from: params?.from,
+      to: params?.to,
+      page: params?.page ? Number(params.page) : undefined,
+      pageSize: 50,
+    }),
     getArtistOptions(),
   ]);
 
@@ -23,7 +36,14 @@ export default async function SessionsPage() {
           </Link>
         </Button>
       </div>
-      <SessionList sessions={sessions} artists={artists} />
+      <SessionList 
+        sessions={sessions} 
+        artists={artists}
+        initialArtist={params?.artist_id || 'all'}
+        initialType={params?.session_type || 'all'}
+        initialFrom={params?.from || ''}
+        initialTo={params?.to || ''}
+      />
     </div>
   );
 }
