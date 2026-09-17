@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS public.rate_limits (
 -- Index for opportunistic cleanup of expired records
 CREATE INDEX IF NOT EXISTS idx_rate_limits_reset_time ON public.rate_limits (reset_time);
 
+-- Enable Row Level Security (default-deny for defense in depth; accessed strictly via SECURITY DEFINER RPC)
+ALTER TABLE public.rate_limits ENABLE ROW LEVEL SECURITY;
+
 -- Atomic stored procedure to check and increment rate limit in a single transaction
 CREATE OR REPLACE FUNCTION public.check_rate_limit_rpc(
     p_key TEXT,

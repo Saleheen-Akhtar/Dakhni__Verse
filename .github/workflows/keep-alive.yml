@@ -1,0 +1,24 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    # Twice a week — comfortably inside the 7-day free-tier inactivity window
+    - cron: '0 6 * * 1,4'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase with a real query
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          curl -sf -X POST \
+            "${SUPABASE_URL}/rest/v1/rpc/get_active_artist_options_rpc" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            -o /dev/null -w "keep-alive ping: HTTP %{http_code}\n"
