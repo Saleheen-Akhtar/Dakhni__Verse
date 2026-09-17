@@ -1,27 +1,16 @@
-"use client";
-
-import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getProductionWorkload } from "@/lib/calculations/production";
-import { getTarget } from "@/lib/calculations/targets";
-import { calculateProgress } from "@/lib/calculations/targets";
 import type { ProductionWorkload } from "@/types";
 
-export function ProductionSummary() {
-  const [workload, setWorkload] = useState<ProductionWorkload | null>(null);
-  const [targetValue, setTargetValue] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+interface ProductionSummaryProps {
+  workload?: ProductionWorkload | null;
+  targetValue?: number | null;
+}
 
-  useEffect(() => {
-    // Production summary will be shown once a producer is configured
-    // For now, show an empty state or info message
-    setLoading(false);
-  }, []);
-
-  if (loading) {
-    return <div className="h-32 animate-pulse bg-muted rounded-lg" />;
-  }
+export function ProductionSummary({
+  workload = null,
+  targetValue = null,
+}: ProductionSummaryProps) {
 
   return (
     <Card>

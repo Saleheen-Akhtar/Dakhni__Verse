@@ -147,24 +147,26 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
         }))
     : [];
 
-  // 1. Try atomic PostgreSQL RPC execution
-  try {
-    const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_artist_transactional', {
-      p_artist_data: artistData,
-      p_profile_data: musicProfileData,
-      p_social_links: normalizedLinks,
-    });
+  // 1. Execute atomic PostgreSQL RPC procedure
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_artist_transactional', {
+    p_artist_data: artistData,
+    p_profile_data: musicProfileData,
+    p_social_links: normalizedLinks,
+  });
 
-    if (!rpcErr && rpcRes?.artist_id) {
-      const { data: createdArtist } = await supabase
-        .from('artists')
-        .select('*')
-        .eq('id', rpcRes.artist_id)
-        .single();
-      if (createdArtist) return createdArtist;
-    }
-  } catch {
-    // Graceful fallback to sequential creation if RPC is not yet executed in Supabase
+  if (!rpcErr && rpcRes?.artist_id) {
+    const { data: createdArtist, error: fetchErr } = await supabase
+      .from('artists')
+      .select('*')
+      .eq('id', rpcRes.artist_id)
+      .single();
+    if (fetchErr) throw fetchErr;
+    return createdArtist;
+  }
+
+  // Fail-closed if RPC threw an operational or constraint error
+  if (rpcErr && rpcErr.code !== '42883' && rpcErr.code !== 'PGRST202') {
+    throw new Error(`Failed to create artist transactionally: ${rpcErr.message}`);
   }
 
   // 2. Sequential fallback with rollback on failure
@@ -290,14 +292,16 @@ export async function updateArtistSocialLinks(artistId: string, links: Array<{pl
   const validLinks = (links || []).filter(l => l && l.url && l.url.trim() !== '');
 
   // 1. Try atomic PostgreSQL procedure
-  try {
-    const { error: rpcError } = await supabase.rpc('replace_artist_social_links', {
-      p_artist_id: artistId,
-      p_social_links: validLinks,
-    });
-    if (!rpcError) return;
-  } catch {
-    // Fallback to sequential query
+  const { error: rpcError } = await supabase.rpc('replace_artist_social_links', {
+    p_artist_id: artistId,
+    p_social_links: validLinks,
+  });
+
+  if (!rpcError) return;
+
+  // Fail closed if RPC failed with an operational or constraint error
+  if (rpcError.code !== '42883' && rpcError.code !== 'PGRST202') {
+    throw new Error(`Failed to update social links transactionally: ${rpcError.message}`);
   }
 
   // 2. Sequential fallback

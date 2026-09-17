@@ -1,5 +1,3 @@
-"use client";
-
 import { formatDate } from "@/lib/utils/format";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
