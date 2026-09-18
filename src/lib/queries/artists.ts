@@ -563,11 +563,11 @@ export async function getArtistApplications(filterStatus: 'Pending' | 'Rejected'
     .select('*, music_profile:artist_music_profiles(*), social_links:artist_social_links(*)');
 
   if (filterStatus === 'Pending') {
-    query = query.or('status.eq.Pending,dakhni_verse_role.eq.Pending Applicant,dakhni_verse_role.eq.Re-Application');
+    query = query.or('status.eq.Pending,dakhni_verse_role.eq."Pending Applicant",dakhni_verse_role.eq.Re-Application');
   } else if (filterStatus === 'Rejected') {
-    query = query.or('status.eq.Rejected,dakhni_verse_role.eq.Rejected Applicant');
+    query = query.or('status.eq.Rejected,dakhni_verse_role.eq."Rejected Applicant"');
   } else {
-    query = query.or('status.eq.Pending,status.eq.Rejected,dakhni_verse_role.eq.Pending Applicant,dakhni_verse_role.eq.Rejected Applicant,dakhni_verse_role.eq.Re-Application');
+    query = query.or('status.eq.Pending,status.eq.Rejected,dakhni_verse_role.eq."Pending Applicant",dakhni_verse_role.eq."Rejected Applicant",dakhni_verse_role.eq.Re-Application');
   }
 
   query = query.order('created_at', { ascending: false });
@@ -587,7 +587,7 @@ export async function getPendingApplicationsCount(): Promise<number> {
   const { count, error } = await supabase
     .from('artists')
     .select('*', { count: 'exact', head: true })
-    .or('status.eq.Pending,dakhni_verse_role.eq.Pending Applicant,dakhni_verse_role.eq.Re-Application');
+    .or('status.eq.Pending,dakhni_verse_role.eq."Pending Applicant",dakhni_verse_role.eq.Re-Application');
 
   if (error || count === null) return 0;
   return count;
