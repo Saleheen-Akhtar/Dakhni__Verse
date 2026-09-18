@@ -13,42 +13,31 @@ export async function getProductionWorkload(
 ): Promise<ProductionWorkload> {
   const supabase = await createClient();
 
-  let producerQuery = supabase
+  let query = supabase
     .from("projects")
-    .select("status")
-    .not("status", "eq", "Cancelled");
-
-  let mixQuery = supabase
-    .from("projects")
-    .select("status")
-    .not("status", "eq", "Cancelled");
-
-  let masterQuery = supabase
-    .from("projects")
-    .select("status")
+    .select("status, producer_id, mix_engineer_id, mastering_engineer_id")
     .not("status", "eq", "Cancelled");
 
   if (producerArtistId) {
-    producerQuery = producerQuery.eq("producer_id", producerArtistId);
-    mixQuery = mixQuery.eq("mix_engineer_id", producerArtistId);
-    masterQuery = masterQuery.eq("mastering_engineer_id", producerArtistId);
-  } else {
-    // Collective studio-wide workload for assigned projects
-    producerQuery = producerQuery.not("producer_id", "is", null);
-    mixQuery = mixQuery.not("mix_engineer_id", "is", null);
-    masterQuery = masterQuery.not("mastering_engineer_id", "is", null);
+    query = query.or(
+      `producer_id.eq.${producerArtistId},mix_engineer_id.eq.${producerArtistId},mastering_engineer_id.eq.${producerArtistId}`
+    );
   }
 
-  // Parallel execution across all 3 disciplines
-  const [
-    { data: producerProjects },
-    { data: mixProjects },
-    { data: masterProjects },
-  ] = await Promise.all([
-    producerQuery,
-    mixQuery,
-    masterQuery,
-  ]);
+  const { data: allProjects } = await query;
+  const projects = allProjects || [];
+
+  const producerProjects = producerArtistId
+    ? projects.filter((p) => p.producer_id === producerArtistId)
+    : projects.filter((p) => p.producer_id !== null);
+
+  const mixProjects = producerArtistId
+    ? projects.filter((p) => p.mix_engineer_id === producerArtistId)
+    : projects.filter((p) => p.mix_engineer_id !== null);
+
+  const masterProjects = producerArtistId
+    ? projects.filter((p) => p.mastering_engineer_id === producerArtistId)
+    : projects.filter((p) => p.mastering_engineer_id !== null);
 
   const productionStatuses = ["Idea", "Writing", "Production", "Recording", "Editing"];
   const mixingInProgress = ["Mixing"];

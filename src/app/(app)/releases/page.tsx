@@ -27,7 +27,7 @@ export default async function ReleasesPage({
       <div className="flex items-center justify-between">
         <PageHeader title="Releases" description="Track music releases" />
         <Button asChild>
-          <Link href="/releases/new">
+          <Link href="/releases/new" prefetch={false}>
             <Plus className="mr-2 h-4 w-4" />
             Add Release
           </Link>

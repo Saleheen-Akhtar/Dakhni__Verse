@@ -73,11 +73,7 @@ export default async function DashboardPage({
   const params = await searchParams;
   const dateRange = parseSafeDateRange(params?.from, params?.to);
 
-  const [profile, kpis] = await Promise.all([
-    getCurrentUserProfile(),
-    getDashboardKPIs(dateRange),
-  ]);
-
+  const profile = await getCurrentUserProfile();
   const userRole = profile?.role || "Artist";
 
   return (
@@ -100,88 +96,10 @@ export default async function DashboardPage({
         />
       </div>
 
-      {/* Core KPI Cards - 100% Server Rendered */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPICard
-          label="Active Artists"
-          value={kpis.activeArtists}
-          icon={<Users className="h-4 w-4" />}
-          href="/artists?status=Active"
-        />
-        <KPICard
-          label="Active Projects"
-          value={kpis.activeProjects}
-          icon={<Music className="h-4 w-4" />}
-          href="/projects?status=active"
-        />
-        <KPICard
-          label="In Production"
-          value={kpis.songsInProduction}
-          icon={<Mic className="h-4 w-4" />}
-          href="/projects?status=Production"
-        />
-        <KPICard
-          label="Songs Released"
-          value={kpis.songsReleased}
-          icon={<Disc className="h-4 w-4" />}
-          href="/releases?status=Released"
-        />
-        <KPICard
-          label="Studio Sessions"
-          value={kpis.studioSessions}
-          icon={<Calendar className="h-4 w-4" />}
-          href="/sessions"
-        />
-        <KPICard
-          label="Studio Hours"
-          value={`${kpis.studioHours}h`}
-          icon={<Clock className="h-4 w-4" />}
-        />
-        <KPICard
-          label="Contributions"
-          value={formatCurrency(kpis.confirmedContributions)}
-          icon={<IndianRupee className="h-4 w-4" />}
-          href="/finance"
-        />
-        <KPICard
-          label="Expenses"
-          value={formatCurrency(kpis.totalExpenses)}
-          icon={<Receipt className="h-4 w-4" />}
-          href="/finance"
-        />
-      </div>
-
-      {/* Available Funds - Prominent Card (Server Rendered) */}
-      <Card className="border-2 border-dv-black">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground font-medium">
-                Available Funds
-              </p>
-              <p className="text-4xl font-bold font-display mt-1">
-                {formatCurrency(kpis.availableFunds)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                Confirmed Contributions − Total Expenses
-              </p>
-            </div>
-            <div className="hidden sm:block">
-              <Wallet className="h-12 w-12 text-muted-foreground/30" />
-            </div>
-          </div>
-          {kpis.pendingContributions > 0 && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-sm text-muted-foreground">
-                Pending Contributions:{" "}
-                <span className="font-semibold text-amber-600">
-                  {formatCurrency(kpis.pendingContributions)}
-                </span>
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Core KPI Cards & Funds - Streamed RSC Boundary */}
+      <Suspense fallback={<DashboardKPISkeleton />}>
+        <AsyncDashboardKPIsSection dateRange={dateRange} />
+      </Suspense>
 
       {/* Charts Row - Independent RSC Streaming Boundaries */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -272,4 +190,112 @@ async function AsyncProductionSection({
     userRole === "Producer" ? artistId : null
   );
   return <ProductionSummary workload={workload} />;
+}
+
+function DashboardKPISkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
+        ))}
+      </div>
+      <div className="h-32 rounded-xl bg-muted animate-pulse" />
+    </div>
+  );
+}
+
+async function AsyncDashboardKPIsSection({
+  dateRange,
+}: {
+  dateRange: { from: Date; to: Date };
+}) {
+  const kpis = await getDashboardKPIs(dateRange);
+
+  return (
+    <>
+      {/* Core KPI Cards - 100% Server Rendered */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPICard
+          label="Active Artists"
+          value={kpis.activeArtists}
+          icon={<Users className="h-4 w-4" />}
+          href="/artists?status=Active"
+        />
+        <KPICard
+          label="Active Projects"
+          value={kpis.activeProjects}
+          icon={<Music className="h-4 w-4" />}
+          href="/projects?status=active"
+        />
+        <KPICard
+          label="In Production"
+          value={kpis.songsInProduction}
+          icon={<Mic className="h-4 w-4" />}
+          href="/projects?status=Production"
+        />
+        <KPICard
+          label="Songs Released"
+          value={kpis.songsReleased}
+          icon={<Disc className="h-4 w-4" />}
+          href="/releases?status=Released"
+        />
+        <KPICard
+          label="Studio Sessions"
+          value={kpis.studioSessions}
+          icon={<Calendar className="h-4 w-4" />}
+          href="/sessions"
+        />
+        <KPICard
+          label="Studio Hours"
+          value={`${kpis.studioHours}h`}
+          icon={<Clock className="h-4 w-4" />}
+        />
+        <KPICard
+          label="Contributions"
+          value={formatCurrency(kpis.confirmedContributions)}
+          icon={<IndianRupee className="h-4 w-4" />}
+          href="/finance"
+        />
+        <KPICard
+          label="Expenses"
+          value={formatCurrency(kpis.totalExpenses)}
+          icon={<Receipt className="h-4 w-4" />}
+          href="/finance"
+        />
+      </div>
+
+      {/* Available Funds - Prominent Card (Server Rendered) */}
+      <Card className="border-2 border-dv-black">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground font-medium">
+                Available Funds
+              </p>
+              <p className="text-4xl font-bold font-display mt-1">
+                {formatCurrency(kpis.availableFunds)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Confirmed Contributions − Total Expenses
+              </p>
+            </div>
+            <div className="hidden sm:block">
+              <Wallet className="h-12 w-12 text-muted-foreground/30" />
+            </div>
+          </div>
+          {kpis.pendingContributions > 0 && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground">
+                Pending Contributions:{" "}
+                <span className="font-semibold text-amber-600">
+                  {formatCurrency(kpis.pendingContributions)}
+                </span>
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
 }

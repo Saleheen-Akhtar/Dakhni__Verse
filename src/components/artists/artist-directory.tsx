@@ -23,7 +23,7 @@ export function ArtistDirectory({
   initialSearch = '',
   initialStatus = 'All',
   currentPage = 1,
-  pageSize = 48,
+  pageSize = 24,
 }: ArtistDirectoryProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(initialSearch);
