@@ -28,7 +28,7 @@ export function FinancePage({
   artists,
   initialTab = 'contributions',
   currentPage = 1,
-  pageSize = 50,
+  pageSize = 25,
 }: {
   summaries: {
     confirmedContributions: number;

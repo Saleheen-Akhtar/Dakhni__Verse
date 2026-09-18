@@ -1,11 +1,11 @@
 import { getArtistOptions } from '@/lib/queries/releases';
-import { getProjects } from '@/lib/queries/projects';
+import { getProjectOptions } from '@/lib/queries/projects';
 import { ReleaseForm } from '@/components/releases/release-form';
 
 export default async function NewReleasePage() {
   const [artists, projects] = await Promise.all([
     getArtistOptions(),
-    getProjects(),
+    getProjectOptions(),
   ]);
 
   return (

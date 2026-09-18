@@ -21,7 +21,7 @@ export function EquipmentList({
   initialSearch = '',
   initialOwnerType = 'all',
   currentPage = 1,
-  pageSize = 50,
+  pageSize = 25,
 }: EquipmentListProps) {
   const router = useRouter();
   const [search, setSearch] = useState(initialSearch);

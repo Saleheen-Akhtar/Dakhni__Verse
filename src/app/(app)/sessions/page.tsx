@@ -19,7 +19,7 @@ export default async function SessionsPage({
       from: params?.from,
       to: params?.to,
       page: params?.page ? Number(params.page) : undefined,
-      pageSize: 50,
+      pageSize: 25,
     }),
     getArtistOptions(),
   ]);

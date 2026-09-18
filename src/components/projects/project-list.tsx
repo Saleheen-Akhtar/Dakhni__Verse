@@ -25,7 +25,7 @@ export function ProjectList({
   initialStatus = 'all',
   initialArtist = 'all',
   currentPage = 1,
-  pageSize = 50,
+  pageSize = 25,
 }: ProjectListProps) {
   const router = useRouter();
   const [search, setSearch] = useState(initialSearch);

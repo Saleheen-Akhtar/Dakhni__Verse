@@ -19,7 +19,7 @@ export default async function ProjectsPage({
       status: params?.status,
       artist_id: params?.artist_id,
       page: params?.page ? Number(params.page) : undefined,
-      pageSize: 50,
+      pageSize: 25,
     }),
     getArtistOptions(),
   ]);

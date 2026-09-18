@@ -27,7 +27,7 @@ export function SessionList({
   initialFrom = '',
   initialTo = '',
   currentPage = 1,
-  pageSize = 50,
+  pageSize = 25,
 }: SessionListProps) {
   const router = useRouter();
   const [artistFilter, setArtistFilter] = useState(initialArtist);

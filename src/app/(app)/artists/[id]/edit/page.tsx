@@ -10,9 +10,10 @@ export default async function EditArtistPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await getCurrentUserProfile();
-
-  const artist = await getArtistById(id);
+  const [user, artist] = await Promise.all([
+    getCurrentUserProfile(),
+    getArtistById(id),
+  ]);
 
   if (!artist) {
     notFound();

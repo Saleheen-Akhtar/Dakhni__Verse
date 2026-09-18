@@ -3,11 +3,31 @@
 import { createClient } from '@/lib/supabase/server';
 import { createProjectSchema, updateProjectSchema } from '@/lib/validation/project';
 import { requireUserSession, requireManagerAction } from '@/lib/auth/helpers';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import type { Project, ProjectWithRelations, ProjectStatusHistory } from '@/types';
+
 export async function getArtistOptions() {
   const { getArtistOptions: getOpts } = await import('./artists');
   return getOpts();
 }
+
+export const getProjectOptions = unstable_cache(
+  async () => {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id, title')
+      .order('title', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching project options:', error);
+      return [];
+    }
+    return data || [];
+  },
+  ['project-options'],
+  { revalidate: 300, tags: ['project-options'] }
+);
 
 export async function getProjects(filters?: { artist_id?: string; producer_id?: string; status?: string; search?: string; page?: number; pageSize?: number }) {
   const supabase = await createClient();
@@ -86,6 +106,7 @@ export async function createProject(data: any, userId?: string) {
 
   if (historyError) console.error('Error adding status history:', historyError);
 
+  revalidateTag('project-options');
   return project;
 }
 
@@ -109,6 +130,7 @@ export async function updateProject(id: string, data: any, userId?: string) {
 
   if (error) throw error;
 
+  revalidateTag('project-options');
   return project;
 }
 
@@ -120,6 +142,7 @@ export async function deleteProject(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+  revalidateTag('project-options');
   return true;
 }
 

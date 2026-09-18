@@ -558,50 +558,39 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
 
 export async function getArtistApplications(filterStatus: 'Pending' | 'Rejected' | 'all' = 'Pending'): Promise<ArtistWithProfile[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('artists')
-    .select('*, music_profile:artist_music_profiles(*), social_links:artist_social_links(*)')
-    .order('created_at', { ascending: false });
+    .select('*, music_profile:artist_music_profiles(*), social_links:artist_social_links(*)');
+
+  if (filterStatus === 'Pending') {
+    query = query.or('status.eq.Pending,dakhni_verse_role.eq.Pending Applicant,dakhni_verse_role.eq.Re-Application');
+  } else if (filterStatus === 'Rejected') {
+    query = query.or('status.eq.Rejected,dakhni_verse_role.eq.Rejected Applicant');
+  } else {
+    query = query.or('status.eq.Pending,status.eq.Rejected,dakhni_verse_role.eq.Pending Applicant,dakhni_verse_role.eq.Rejected Applicant,dakhni_verse_role.eq.Re-Application');
+  }
+
+  query = query.order('created_at', { ascending: false });
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching artist applications:', error);
     return [];
   }
 
-  const all = (data || []) as ArtistWithProfile[];
-
-  if (filterStatus === 'Pending') {
-    return all.filter(
-      (a) => a.status === 'Pending' || a.dakhni_verse_role === 'Pending Applicant' || a.dakhni_verse_role === 'Re-Application'
-    );
-  }
-
-  if (filterStatus === 'Rejected') {
-    return all.filter(
-      (a) => a.status === 'Rejected' || a.dakhni_verse_role === 'Rejected Applicant'
-    );
-  }
-
-  return all.filter(
-    (a) =>
-      a.status === 'Pending' ||
-      a.status === 'Rejected' ||
-      a.dakhni_verse_role === 'Pending Applicant' ||
-      a.dakhni_verse_role === 'Rejected Applicant' ||
-      a.dakhni_verse_role === 'Re-Application'
-  );
+  return (data || []) as ArtistWithProfile[];
 }
 
 export async function getPendingApplicationsCount(): Promise<number> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { count, error } = await supabase
     .from('artists')
-    .select('id, status, dakhni_verse_role');
+    .select('*', { count: 'exact', head: true })
+    .or('status.eq.Pending,dakhni_verse_role.eq.Pending Applicant,dakhni_verse_role.eq.Re-Application');
 
-  if (error || !data) return 0;
-  return data.filter(
-    (a) => a.status === 'Pending' || a.dakhni_verse_role === 'Pending Applicant' || a.dakhni_verse_role === 'Re-Application'
-  ).length;
+  if (error || count === null) return 0;
+  return count;
 }
 
 export async function acceptArtistApplication(artistId: string) {

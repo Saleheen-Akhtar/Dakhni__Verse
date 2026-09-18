@@ -1,11 +1,11 @@
 import { getArtistOptions } from '@/lib/queries/sessions';
-import { getProjects } from '@/lib/queries/projects';
+import { getProjectOptions } from '@/lib/queries/projects';
 import { SessionForm } from '@/components/sessions/session-form';
 
 export default async function NewSessionPage() {
   const [artists, projects] = await Promise.all([
     getArtistOptions(),
-    getProjects(),
+    getProjectOptions(),
   ]);
 
   return (

@@ -15,7 +15,7 @@ export default async function EquipmentPage({
     owner_type: params?.owner_type,
     search: params?.search,
     page: params?.page ? Number(params.page) : undefined,
-    pageSize: 50,
+    pageSize: 25,
   });
 
   return (

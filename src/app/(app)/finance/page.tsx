@@ -19,12 +19,12 @@ export default async function FinanceRoute({
       ? getExpenses({
           category: params?.category,
           page,
-          pageSize: 50,
+          pageSize: 25,
         })
       : getContributions({
           status: params?.status,
           page,
-          pageSize: 50,
+          pageSize: 25,
         }),
   ]);
 

@@ -26,7 +26,7 @@ export function ReleaseList({
   initialStatus = 'all',
   initialArtist = 'all',
   currentPage = 1,
-  pageSize = 50,
+  pageSize = 25,
 }: ReleaseListProps) {
   const router = useRouter();
   const [search, setSearch] = useState(initialSearch);

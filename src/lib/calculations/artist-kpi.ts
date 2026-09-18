@@ -22,40 +22,26 @@ export async function getArtistKPIs(artistId: string): Promise<ArtistKPIs> {
   const supabase = await createClient();
   const today = new Date().toISOString().split("T")[0];
 
-  // Execute all 6 KPI queries concurrently in a single parallel batch
+  // Execute consolidated KPI queries concurrently
   const [
-    { count: activeProjects },
-    { count: completedProjects },
-    { count: releasedSongs },
+    { data: projects },
+    { data: releases },
     { data: sessions },
-    { count: upcomingReleases },
     { data: lastLog },
   ] = await Promise.all([
     supabase
       .from("projects")
-      .select("*", { count: "exact", head: true })
+      .select("status")
       .eq("artist_id", artistId)
-      .not("status", "in", '("Released","Cancelled")'),
-    supabase
-      .from("projects")
-      .select("*", { count: "exact", head: true })
-      .eq("artist_id", artistId)
-      .eq("status", "Released"),
+      .not("status", "eq", "Cancelled"),
     supabase
       .from("releases")
-      .select("*", { count: "exact", head: true })
-      .eq("artist_id", artistId)
-      .eq("status", "Released"),
+      .select("status, release_date")
+      .eq("artist_id", artistId),
     supabase
       .from("sessions")
       .select("duration_minutes")
       .eq("artist_id", artistId),
-    supabase
-      .from("releases")
-      .select("*", { count: "exact", head: true })
-      .eq("artist_id", artistId)
-      .in("status", ["Planned", "Scheduled"])
-      .gte("release_date", today),
     supabase
       .from("activity_logs")
       .select("created_at")
@@ -63,6 +49,19 @@ export async function getArtistKPIs(artistId: string): Promise<ArtistKPIs> {
       .order("created_at", { ascending: false })
       .limit(1),
   ]);
+
+  const allProjects = projects || [];
+  const activeProjects = allProjects.filter((p) => p.status !== "Released").length;
+  const completedProjects = allProjects.filter((p) => p.status === "Released").length;
+
+  const allReleases = releases || [];
+  const releasedSongs = allReleases.filter((r) => r.status === "Released").length;
+  const upcomingReleases = allReleases.filter(
+    (r) =>
+      (r.status === "Planned" || r.status === "Scheduled") &&
+      r.release_date &&
+      r.release_date >= today
+  ).length;
 
   const sessionsAttended = sessions?.length ?? 0;
   const studioHoursMinutes = (sessions || []).reduce(

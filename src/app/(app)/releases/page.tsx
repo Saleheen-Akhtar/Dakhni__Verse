@@ -17,7 +17,7 @@ export default async function ReleasesPage({
       status: params?.status,
       search: params?.search,
       page: params?.page ? Number(params.page) : undefined,
-      pageSize: 50,
+      pageSize: 25,
     }),
     getArtistOptions(),
   ]);

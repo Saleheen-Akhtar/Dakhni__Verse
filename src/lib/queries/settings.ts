@@ -2,17 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { setTarget as baseSetTarget, getTarget } from "@/lib/calculations/targets";
+import { getArtistOptions } from "./artists";
 
 export async function getProducers() {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("artists")
-    .select("id, stage_name")
-    .eq("status", "Active")
-    .order("stage_name", { ascending: true });
-
-  if (error || !data) return [];
-  return data.map((a: any) => ({
+  const artists = await getArtistOptions();
+  return (artists || []).map((a: any) => ({
     id: a.id,
     name: a.stage_name,
   }));
