@@ -1,5 +1,5 @@
 // Dakhni Verse Service Worker (PWA)
-const CACHE_NAME = 'dakhni-verse-v3';
+const CACHE_NAME = 'dakhni-verse-v4';
 const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/manifest.json',
@@ -27,7 +27,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate Event
+// Activate Event - purge old caches and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -40,6 +40,13 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => self.clients.claim())
   );
+});
+
+// Message Event - allow client to force instant activation
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Fetch Event
