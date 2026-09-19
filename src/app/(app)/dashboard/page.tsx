@@ -14,6 +14,14 @@ import { StudioActivityChartLazy } from "@/components/dashboard/studio-activity-
 import { ExpenseBreakdownChartLazy } from "@/components/dashboard/expense-breakdown-chart-lazy";
 import { ProductionSummary } from "@/components/dashboard/production-summary";
 import { RecentActivityFeed } from "@/components/dashboard/recent-activity";
+import { ArtistDashboard } from "@/components/dashboard/artist-dashboard";
+import {
+  resolveArtistForUser,
+  getArtistUpcomingSessions,
+  getArtistPersonalProjects,
+  getArtistPersonalReleases,
+} from "@/lib/queries/artist-portal";
+import { getArtistKPIs } from "@/lib/calculations/artist-kpi";
 import {
   Users,
   Music,
@@ -75,6 +83,11 @@ export default async function DashboardPage({
 
   const profile = await getCurrentUserProfile();
   const userRole = profile?.role || "Artist";
+
+  // If user is an Artist, render the dedicated Artist Portal Dashboard
+  if (userRole === "Artist") {
+    return <AsyncArtistDashboardSection profile={profile} />;
+  }
 
   return (
     <div className="space-y-8">
@@ -306,5 +319,41 @@ async function AsyncDashboardKPIsSection({
         </CardContent>
       </Card>
     </>
+  );
+}
+
+async function AsyncArtistDashboardSection({ profile }: { profile: any }) {
+  const artist = profile ? await resolveArtistForUser(profile) : null;
+  const artistId = artist?.id || profile?.artist_id;
+
+  const [kpis, upcomingSessions, projects, releases, recentActivities] = await Promise.all([
+    artistId
+      ? getArtistKPIs(artistId)
+      : Promise.resolve({
+          activeProjects: 0,
+          completedProjects: 0,
+          releasedSongs: 0,
+          sessionsAttended: 0,
+          studioHoursMinutes: 0,
+          studioHours: 0,
+          upcomingReleases: 0,
+          lastActivity: null,
+        }),
+    artistId ? getArtistUpcomingSessions(artistId) : Promise.resolve([]),
+    artistId ? getArtistPersonalProjects(artistId, 6) : Promise.resolve([]),
+    artistId ? getArtistPersonalReleases(artistId, 4) : Promise.resolve([]),
+    getRecentActivity(15),
+  ]);
+
+  return (
+    <ArtistDashboard
+      userName={profile?.name || "Artist"}
+      artist={artist}
+      kpis={kpis}
+      upcomingSessions={upcomingSessions}
+      projects={projects}
+      releases={releases}
+      recentActivities={recentActivities}
+    />
   );
 }

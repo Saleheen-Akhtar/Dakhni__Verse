@@ -30,15 +30,22 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: any;
+  roles?: string[];
+}
+
+const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Artists', href: '/artists', icon: Users },
   { label: 'Projects', href: '/projects', icon: Music },
   { label: 'Sessions', href: '/sessions', icon: Calendar },
   { label: 'Releases', href: '/releases', icon: Disc },
-  { label: 'Finance', href: '/finance', icon: Wallet },
+  { label: 'Finance', href: '/finance', icon: Wallet, roles: ['Manager'] },
   { label: 'Equipment', href: '/equipment', icon: Wrench },
-  { label: 'Settings', href: '/settings', icon: Settings },
+  { label: 'Settings', href: '/settings', icon: Settings, roles: ['Manager'] },
 ];
 
 export function AppShell({ user, children }: AppShellProps) {
@@ -48,9 +55,14 @@ export function AppShell({ user, children }: AppShellProps) {
   const toggleMenu = () => setMobileMenuOpen(!mobileMenuOpen);
   const closeMenu = () => setMobileMenuOpen(false);
 
+  const visibleNavItems = navItems.filter((item) => {
+    if (!item.roles) return true;
+    return item.roles.includes(user.role);
+  });
+
   const renderNavItems = () => (
     <nav className="flex-1 py-6 space-y-1 overflow-y-auto">
-      {navItems.map((item) => {
+      {visibleNavItems.map((item) => {
         const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
         const Icon = item.icon;
         
