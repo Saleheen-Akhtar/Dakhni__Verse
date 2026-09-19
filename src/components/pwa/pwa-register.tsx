@@ -11,75 +11,65 @@ export function PwaRegister() {
       return;
     }
 
-    // 1. When a new service worker takes control, automatically reload to apply updates
+    // 1. When a new service worker takes over, smoothly refresh to show new code
     const handleControllerChange = () => {
       if (refreshingRef.current) return;
       refreshingRef.current = true;
       toast({
         title: 'App Updated',
-        description: 'New version available. Refreshing...',
+        description: 'New updates applied. Refreshing...',
         variant: 'info',
         duration: 2000,
       });
       setTimeout(() => {
         window.location.reload();
-      }, 800);
+      }, 600);
     };
 
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
-    // 2. Register service worker and wire automatic update checks
+    // 2. Register service worker with native W3C updateViaCache: 'none'
+    // This tells the browser's native C++ engine to check for updates natively
+    // without running any JavaScript polling loops or background timers.
     navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
+      .register('/sw.js', { scope: '/', updateViaCache: 'none' })
       .then((registration) => {
-        // If there is already a waiting worker, tell it to activate immediately
+        // If there's already an updated worker waiting, activate it immediately
         if (registration.waiting) {
           registration.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
 
-        // Listen for new worker installation
+        // When a new worker is installed in background, tell it to take over
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
           if (!newWorker) return;
 
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New version is installed and waiting; tell it to skip waiting and take over
               newWorker.postMessage({ type: 'SKIP_WAITING' });
             }
           });
         });
 
-        // 3. Proactively check for updates immediately on load
-        registration.update().catch(() => {});
-
-        // 4. Proactively check for updates whenever user returns to the app / unminimizes
+        // 3. Passive resume check: ONLY when the user returns to the app after being away
+        // Debounced to at least 30 minutes so it never runs during active app usage
+        let lastCheck = Date.now();
         const handleVisibilityChange = () => {
-          if (document.visibilityState === 'visible') {
+          const now = Date.now();
+          if (document.visibilityState === 'visible' && now - lastCheck > 30 * 60 * 1000) {
+            lastCheck = now;
             registration.update().catch(() => {});
           }
         };
 
-        const handleFocus = () => {
-          registration.update().catch(() => {});
-        };
-
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('focus', handleFocus);
-
-        // 5. Periodic background check every 5 minutes
-        const intervalId = setInterval(() => {
-          registration.update().catch(() => {});
-        }, 5 * 60 * 1000);
 
         return () => {
           document.removeEventListener('visibilitychange', handleVisibilityChange);
-          window.removeEventListener('focus', handleFocus);
-          clearInterval(intervalId);
         };
       })
       .catch((err) => {
-        console.warn('PWA Service Worker registration failed:', err);
+        console.warn('PWA registration:', err);
       });
 
     return () => {
