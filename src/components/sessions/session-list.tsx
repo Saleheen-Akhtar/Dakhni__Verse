@@ -293,14 +293,14 @@ export function SessionList({
 
   return (
     <div className="space-y-4">
-      {/* Sleek Modern Filter Bar */}
-      <div className="bg-white rounded-xl border border-border p-3.5 shadow-xs space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Filter Dropdowns */}
-          <div className="flex flex-wrap items-center gap-2.5">
+      {/* Ultra-Clean Single Line Filter Bar */}
+      <div className="bg-white rounded-xl border border-border px-3 py-2 shadow-xs">
+        <div className="flex items-center justify-between gap-2.5 overflow-x-auto">
+          {/* Left: Filters strictly side by side */}
+          <div className="flex items-center gap-2 shrink-0">
             {/* Artist Filter */}
-            <Select value={artistFilter} onValueChange={handleArtistChange}>
-              <SelectTrigger className="w-[165px] h-9 text-xs font-medium">
+            <Select value={artistFilter} onValueChange={handleArtistChange} className="w-auto shrink-0">
+              <SelectTrigger className="w-[145px] h-8 text-xs font-medium bg-neutral-50 hover:bg-neutral-100 border-neutral-200">
                 <div className="flex items-center gap-1.5 truncate">
                   <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <SelectValue placeholder="All Artists" />
@@ -317,8 +317,8 @@ export function SessionList({
             </Select>
 
             {/* Session Type Filter */}
-            <Select value={typeFilter} onValueChange={handleTypeChange}>
-              <SelectTrigger className="w-[155px] h-9 text-xs font-medium">
+            <Select value={typeFilter} onValueChange={handleTypeChange} className="w-auto shrink-0">
+              <SelectTrigger className="w-[135px] h-8 text-xs font-medium bg-neutral-50 hover:bg-neutral-100 border-neutral-200">
                 <div className="flex items-center gap-1.5 truncate">
                   <Music className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <SelectValue placeholder="All Types" />
@@ -335,8 +335,8 @@ export function SessionList({
             </Select>
 
             {/* Date Preset Filter */}
-            <Select value={datePreset} onValueChange={handlePresetChange}>
-              <SelectTrigger className="w-[165px] h-9 text-xs font-medium">
+            <Select value={datePreset} onValueChange={handlePresetChange} className="w-auto shrink-0">
+              <SelectTrigger className="w-[145px] h-8 text-xs font-medium bg-neutral-50 hover:bg-neutral-100 border-neutral-200">
                 <div className="flex items-center gap-1.5 truncate">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <SelectValue placeholder="All Dates" />
@@ -347,8 +347,8 @@ export function SessionList({
                 <SelectItem value="today">Today</SelectItem>
                 <SelectItem value="this_week">This Week</SelectItem>
                 <SelectItem value="this_month">This Month</SelectItem>
-                <SelectItem value="upcoming">Upcoming Sessions</SelectItem>
-                <SelectItem value="custom">Custom Date Range...</SelectItem>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="custom">Custom...</SelectItem>
               </SelectContent>
             </Select>
 
@@ -358,7 +358,7 @@ export function SessionList({
                 variant="ghost"
                 size="sm"
                 onClick={handleClearAllFilters}
-                className="h-9 px-2.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200/80 rounded-lg transition-colors"
+                className="h-8 px-2 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200/80 rounded-md transition-colors shrink-0"
                 title="Reset all filters"
               >
                 <X className="h-3.5 w-3.5 mr-1" />
@@ -367,11 +367,11 @@ export function SessionList({
             )}
           </div>
 
-          {/* View Toggle */}
-          <div className="inline-flex rounded-lg bg-neutral-100 p-1 text-muted-foreground shrink-0 self-start lg:self-auto border border-neutral-200/80">
+          {/* Right: View Toggle */}
+          <div className="inline-flex rounded-lg bg-neutral-100 p-0.5 text-muted-foreground shrink-0 border border-neutral-200/80">
             <button
               onClick={() => setView('calendar')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
                 view === 'calendar'
                   ? 'bg-white text-foreground shadow-xs'
                   : 'hover:text-foreground'
@@ -382,7 +382,7 @@ export function SessionList({
             </button>
             <button
               onClick={() => setView('table')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
                 view === 'table'
                   ? 'bg-white text-foreground shadow-xs'
                   : 'hover:text-foreground'

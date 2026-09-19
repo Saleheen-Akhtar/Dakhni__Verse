@@ -25,6 +25,7 @@ interface CompoundSelectProps {
   defaultValue?: string;
   onValueChange?: (val: string) => void;
   children?: React.ReactNode;
+  className?: string;
 }
 
 const Select = React.forwardRef<any, any>(
@@ -62,6 +63,7 @@ function CompoundSelect({
   defaultValue = "",
   onValueChange,
   children,
+  className,
 }: CompoundSelectProps & { ref?: any }) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const [open, setOpen] = React.useState(false);
@@ -104,7 +106,7 @@ function CompoundSelect({
         setSelectedLabel,
       }}
     >
-      <div ref={containerRef} className="relative w-full">
+      <div ref={containerRef} className={cn("relative", className || "w-full")}>
         {children}
       </div>
     </SelectContext.Provider>
