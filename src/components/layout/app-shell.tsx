@@ -72,6 +72,7 @@ export function AppShell({ user, children }: AppShellProps) {
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             onClick={closeMenu}
             className={`flex items-center gap-3 px-6 py-3 transition-colors ${
               isActive

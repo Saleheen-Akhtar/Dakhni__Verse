@@ -1,10 +1,15 @@
 // Dakhni Verse Service Worker (PWA)
-const CACHE_NAME = 'dakhni-verse-v2';
+const CACHE_NAME = 'dakhni-verse-v3';
 const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/manifest.json',
+  '/favicon.ico',
+  '/logo.png',
+  '/logo-square.png',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
+  '/icons/icon-maskable-192x192.png',
+  '/icons/icon-maskable-512x512.png',
   '/icons/apple-touch-icon.png',
   '/icons/favicon-32x32.png',
   '/icons/icon.svg',
@@ -42,13 +47,15 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests, non-http, and Supabase API/Auth endpoints
+  // Skip non-GET requests, non-http, Supabase API/Auth, Next.js internal RSC requests, and Next static chunks
   if (
     request.method !== 'GET' ||
     !url.protocol.startsWith('http') ||
     url.hostname.includes('supabase.co') ||
     url.pathname.startsWith('/api/') ||
-    url.pathname.includes('/auth/')
+    url.pathname.includes('/auth/') ||
+    url.searchParams.has('_rsc') ||
+    url.pathname.startsWith('/_next/')
   ) {
     return;
   }
@@ -59,6 +66,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.includes('manifest') ||
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.ico') ||
     url.pathname.endsWith('.woff2')
   ) {
     event.respondWith(
@@ -76,36 +84,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation (HTML pages): Network First with Cache Fallback
+  // Navigation (HTML pages): Network First with Cache Fallback for offline support
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match(request).then((cached) => {
-            return cached || caches.match('/manifest.webmanifest');
-          });
-        })
+      fetch(request).catch(() => {
+        return caches.match(request).then((cached) => {
+          return cached || caches.match('/manifest.webmanifest');
+        });
+      })
     );
     return;
   }
-
-  // Default: Network First with Cache Fallback
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (response && response.status === 200) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(request))
-  );
 });
