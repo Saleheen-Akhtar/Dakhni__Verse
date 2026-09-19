@@ -42,6 +42,10 @@ function getStatelessSupabase() {
 }
 
 export async function getArtists(filters?: { status?: string; role?: string; search?: string; page?: number; pageSize?: number }) {
+  return measureQuery('getArtists', () => getArtistsImpl(filters));
+}
+
+async function getArtistsImpl(filters?: { status?: string; role?: string; search?: string; page?: number; pageSize?: number }) {
   const supabase = await createClient();
   let query = supabase.from('artists').select('id, stage_name, legal_name, profile_image_url, location, status, dakhni_verse_role, date_joined', { count: 'exact' });
 
@@ -583,6 +587,10 @@ export async function getArtistApplications(filterStatus: 'Pending' | 'Rejected'
 }
 
 export async function getPendingApplicationsCount(): Promise<number> {
+  return measureQuery('getPendingApplicationsCount', () => getPendingApplicationsCountImpl());
+}
+
+async function getPendingApplicationsCountImpl(): Promise<number> {
   const supabase = await createClient();
   const { count, error } = await supabase
     .from('artists')

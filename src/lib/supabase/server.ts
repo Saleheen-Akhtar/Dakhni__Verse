@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { cache } from 'react'
+import { authFailFastFetch } from '@/lib/supabase/auth-fetch'
 
 export const createClient = cache(async () => {
   const cookieStore = await cookies()
@@ -12,6 +13,7 @@ export const createClient = cache(async () => {
   }
 
   return createServerClient(url, anonKey, {
+    global: { fetch: authFailFastFetch },
     cookies: {
       getAll() {
         return cookieStore.getAll()

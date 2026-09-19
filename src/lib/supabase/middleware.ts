@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { authFailFastFetch } from '@/lib/supabase/auth-fetch'
 
 export async function updateSession(request: NextRequest) {
   // Sanitize incoming headers to prevent spoofing
@@ -24,6 +25,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   const supabase = createServerClient(url, anonKey, {
+    global: { fetch: authFailFastFetch },
     cookies: {
       getAll() {
         return request.cookies.getAll()

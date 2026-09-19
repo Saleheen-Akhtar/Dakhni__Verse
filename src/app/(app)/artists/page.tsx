@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { getCurrentUserProfile } from '@/lib/auth/helpers';
 import { getArtists, getPendingApplicationsCount } from '@/lib/queries/artists';
 import { PageHeader } from '@/components/ui/page-header';
@@ -7,13 +8,23 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ClipboardCheck } from 'lucide-react';
 
+async function PendingApplicationsBadge() {
+  const pendingCount = await getPendingApplicationsCount();
+  if (pendingCount <= 0) return null;
+  return (
+    <span className="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-[#D71920] rounded-full">
+      {pendingCount}
+    </span>
+  );
+}
+
 export default async function ArtistsPage({
   searchParams,
 }: {
   searchParams?: Promise<{ search?: string; status?: string; page?: string }>;
 }) {
   const params = await searchParams;
-  const [profile, artists, pendingCount] = await Promise.all([
+  const [profile, artists] = await Promise.all([
     getCurrentUserProfile(),
     getArtists({
       search: params?.search,
@@ -21,7 +32,6 @@ export default async function ArtistsPage({
       page: params?.page ? Number(params.page) : undefined,
       pageSize: 24,
     }),
-    getPendingApplicationsCount(),
   ]);
 
   const actions = (
@@ -33,11 +43,9 @@ export default async function ArtistsPage({
             <Link href="/artists/review" className="flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4 text-[#D71920]" />
               <span>Review Applications</span>
-              {pendingCount > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-[#D71920] rounded-full">
-                  {pendingCount}
-                </span>
-              )}
+              <Suspense fallback={null}>
+                <PendingApplicationsBadge />
+              </Suspense>
             </Link>
           </Button>
           <Button asChild>
