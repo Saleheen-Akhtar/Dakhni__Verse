@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Send, Copy, Check, MessageCircle, Phone, Clock, Calendar, User, MapPin, X } from 'lucide-react';
+import { Send, Copy, Check, MessageCircle, Phone, Clock, Calendar, User, MapPin, X, Users, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDate, formatDuration } from '@/lib/utils/format';
 import { useToast } from '@/components/ui/toast';
@@ -165,43 +165,65 @@ export function SessionReminderDialog({ session, onClose }: SessionReminderDialo
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="text-xs"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopy}
-              className="text-xs border-neutral-300"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5 mr-1.5" />
-                  Copy Text
-                </>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-neutral-100">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                className="text-xs border-neutral-300 w-full sm:w-auto"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                    Copy Text
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onClose}
+                className="text-xs w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              {/* Send to Group / Pick Chat on WhatsApp */}
+              <a
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(reminderText)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onClose}
+                className="inline-flex items-center justify-center text-xs font-semibold px-3.5 py-2 rounded-md bg-neutral-900 hover:bg-neutral-800 text-white shadow-sm transition-colors text-center"
+                title="Choose any WhatsApp Group or Contact to send this reminder"
+              >
+                <Users className="h-3.5 w-3.5 mr-1.5 text-emerald-400" />
+                Send to Group / Chat
+              </a>
+
+              {/* Direct to Artist */}
+              {formattedPhone && (
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={onClose}
+                  className="inline-flex items-center justify-center text-xs font-semibold px-3.5 py-2 rounded-md bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-sm transition-colors text-center"
+                  title={`Send directly to ${artistName}`}
+                >
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                  Direct to Artist
+                </a>
               )}
-            </Button>
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onClose}
-              className="inline-flex items-center justify-center text-xs font-semibold px-4 py-2 rounded-md bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-sm transition-colors"
-            >
-              <Send className="h-3.5 w-3.5 mr-1.5" />
-              Open in WhatsApp
-            </a>
+            </div>
           </div>
         </div>
       </div>
