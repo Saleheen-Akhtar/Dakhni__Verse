@@ -66,9 +66,9 @@ export async function getEquipmentById(id: string) {
   return data;
 }
 
-export async function createEquipment(data: any, userId?: string) {
+export async function createEquipment(data: any) {
   const { user, supabase } = await requireManagerAction();
-  const authUser = userId || user.id;
+  const authUser = user.id;
   const validated = createEquipmentSchema.parse(data);
   
   const insertData: any = { ...validated, created_by: authUser };

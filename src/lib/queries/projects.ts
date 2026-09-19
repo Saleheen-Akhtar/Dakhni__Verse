@@ -61,7 +61,7 @@ export async function getProjectById(id: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('projects')
-    .select(`id, title, status, notes, target_release_date, release_date, created_at, updated_at, artist_id, producer_id, mix_engineer_id, mastering_engineer_id, artist:artists!artist_id(id, stage_name, legal_name, profile_image_url), producer:artists!producer_id(id, stage_name), mix_engineer:artists!mix_engineer_id(id, stage_name), mastering_engineer:artists!mastering_engineer_id(id, stage_name)`)
+    .select(`id, title, status, notes, target_release_date, release_date, created_at, updated_at, artist_id, producer_id, mix_engineer_id, mastering_engineer_id, artist:artists!artist_id(id, stage_name, profile_image_url), producer:artists!producer_id(id, stage_name), mix_engineer:artists!mix_engineer_id(id, stage_name), mastering_engineer:artists!mastering_engineer_id(id, stage_name)`)
     .eq('id', id)
     .single();
 
@@ -73,9 +73,9 @@ export async function getProjectById(id: string) {
   return data;
 }
 
-export async function createProject(data: any, userId?: string) {
+export async function createProject(data: any) {
   const { user, supabase } = await requireUserSession();
-  const authUser = userId || user.id;
+  const authUser = user.id;
   const validated = createProjectSchema.parse(data);
   
   // Clean empty strings for optional UUID fields
@@ -92,25 +92,14 @@ export async function createProject(data: any, userId?: string) {
 
   if (error) throw error;
 
-  const { error: historyError } = await supabase
-    .from('project_status_history')
-    .insert([{
-      project_id: project.id,
-      old_status: null,
-      new_status: project.status,
-      changed_by: authUser
-    }]);
-
-  if (historyError) console.error('Error adding status history:', historyError);
-
   revalidatePath('/projects');
   revalidatePath('/dashboard');
   return project;
 }
 
-export async function updateProject(id: string, data: any, userId?: string) {
+export async function updateProject(id: string, data: any) {
   const { user, supabase } = await requireUserSession();
-  const authUser = userId || user.id;
+  const authUser = user.id;
   const validated = updateProjectSchema.parse(data);
   
   // Clean empty strings for optional UUID fields

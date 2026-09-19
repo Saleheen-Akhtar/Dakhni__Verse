@@ -49,7 +49,7 @@ export async function getStudioKPIs(dateRange?: DateRange): Promise<StudioKPIs> 
 
   let query = supabase.from("sessions").select(
     "session_type, duration_minutes, artist:artists!artist_id(stage_name)"
-  ).limit(500);
+  ).not("status", "eq", "Cancelled").limit(500);
 
   if (dateRange) {
     query = query

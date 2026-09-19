@@ -41,7 +41,8 @@ export async function getArtistKPIs(artistId: string): Promise<ArtistKPIs> {
     supabase
       .from("sessions")
       .select("duration_minutes")
-      .eq("artist_id", artistId),
+      .eq("artist_id", artistId)
+      .not("status", "eq", "Cancelled"),
     supabase
       .from("activity_logs")
       .select("created_at")

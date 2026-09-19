@@ -92,7 +92,7 @@ export function SessionForm({ artists, projects }: { artists: any[]; projects: a
             <FormItem><FormLabel>Session Type *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
               <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
               <SelectContent>
-                {['Recording', 'Mixing', 'Writing', 'Production', 'Mastering', 'Rehearsal', 'Other'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                {['Recording', 'Production', 'Editing', 'Mixing', 'Mastering', 'Rehearsal', 'Other'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
             </Select><FormMessage /></FormItem>
           )} />

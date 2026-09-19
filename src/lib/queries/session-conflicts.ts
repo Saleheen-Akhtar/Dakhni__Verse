@@ -36,7 +36,19 @@ export async function checkSessionConflicts(
 
   const supabase = await createClient();
 
-  // Query all sessions for the target date
+  // Calculate previous date and next date to handle overnight sessions across midnight
+  const targetDate = new Date(`${sessionDate}T00:00:00`);
+  const prevDateObj = new Date(targetDate);
+  prevDateObj.setDate(prevDateObj.getDate() - 1);
+  const prevDate = prevDateObj.toISOString().split("T")[0];
+
+  const nextDateObj = new Date(targetDate);
+  nextDateObj.setDate(nextDateObj.getDate() + 1);
+  const nextDate = nextDateObj.toISOString().split("T")[0];
+
+  const relevantDates = [prevDate, sessionDate, nextDate];
+
+  // Query candidate sessions across date boundaries
   let query = supabase
     .from("sessions")
     .select(`
@@ -45,7 +57,7 @@ export async function checkSessionConflicts(
       engineer:artists!engineer_id(id, stage_name),
       project:projects!project_id(id, title)
     `)
-    .eq("session_date", sessionDate);
+    .in("session_date", relevantDates);
 
   if (excludeSessionId) {
     query = query.neq("id", excludeSessionId);
@@ -57,18 +69,11 @@ export async function checkSessionConflicts(
     return { hasConflict: false, conflicts: [] };
   }
 
-  // Helper to parse "HH:MM" to minutes from midnight
-  const toMinutes = (timeStr?: string | null) => {
-    if (!timeStr) return null;
-    const parts = timeStr.split(":");
-    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-  };
-
-  const newStartMin = toMinutes(startTime);
-  const newEndMin = toMinutes(endTime);
-
-  if (newStartMin === null || newEndMin === null) {
-    return { hasConflict: false, conflicts: [] };
+  // Calculate requested session timestamps (supports overnight)
+  const reqStart = new Date(`${sessionDate}T${startTime.substring(0, 5)}:00`).getTime();
+  let reqEnd = new Date(`${sessionDate}T${endTime.substring(0, 5)}:00`).getTime();
+  if (reqEnd <= reqStart) {
+    reqEnd += 24 * 60 * 60 * 1000; // Crosses midnight into next day
   }
 
   const conflicts: SessionConflict[] = [];
@@ -76,14 +81,20 @@ export async function checkSessionConflicts(
   for (const session of existingSessions as any[]) {
     // Skip cancelled sessions
     if (session.status === "Cancelled" || session.notes?.includes("[CANCELLED]")) continue;
+    if (!session.start_time || !session.end_time || !session.session_date) continue;
 
-    const existingStartMin = toMinutes(session.start_time);
-    const existingEndMin = toMinutes(session.end_time);
+    const existStart = new Date(
+      `${session.session_date}T${session.start_time.substring(0, 5)}:00`
+    ).getTime();
+    let existEnd = new Date(
+      `${session.session_date}T${session.end_time.substring(0, 5)}:00`
+    ).getTime();
+    if (existEnd <= existStart) {
+      existEnd += 24 * 60 * 60 * 1000; // Crosses midnight into next day
+    }
 
-    if (existingStartMin === null || existingEndMin === null) continue;
-
-    // Check time interval overlap: (start1 < end2) AND (end1 > start2)
-    const isOverlapping = existingStartMin < newEndMin && existingEndMin > newStartMin;
+    // Mathematical interval overlap: (start1 < end2) AND (end1 > start2)
+    const isOverlapping = existStart < reqEnd && existEnd > reqStart;
 
     if (isOverlapping) {
       const conflictTypes: ("time_overlap" | "artist_overlap" | "engineer_overlap")[] = [

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +11,12 @@ import { Tabs } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 import { deleteArtist } from '@/lib/queries/artists';
-import { formatDate } from '@/lib/utils/format';
+import { formatDate, formatDuration } from '@/lib/utils/format';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { GenerateArtistLoginDialog } from '@/components/artists/generate-artist-login-dialog';
 import type { LinkedArtistUser } from '@/lib/auth/artist-login-actions';
+import { ArrowRight, Calendar, Disc, Music, Clock } from 'lucide-react';
 
 interface ArtistProfileProps {
   artist: any;
@@ -23,6 +25,9 @@ interface ArtistProfileProps {
   canDelete: boolean;
   isManager?: boolean;
   linkedUser?: LinkedArtistUser | null;
+  projects?: any[];
+  sessions?: any[];
+  releases?: any[];
 }
 
 export function ArtistProfile({
@@ -32,24 +37,27 @@ export function ArtistProfile({
   canDelete,
   isManager,
   linkedUser,
+  projects = [],
+  sessions = [],
+  releases = [],
 }: ArtistProfileProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('Overview');
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
 
-  const handleDelete = async () => {
+  const handleArchive = async () => {
     setIsDeleting(true);
     try {
       await deleteArtist(artist.id);
-      toast({ title: 'Artist deleted', variant: 'success' });
+      toast({ title: 'Artist archived', description: 'Artist status set to Inactive.', variant: 'success' });
       router.push('/artists');
     } catch (error: any) {
-      toast({ title: 'Error deleting artist', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error archiving artist', description: error.message, variant: 'destructive' });
       setIsDeleting(false);
-      setShowDeleteConfirm(false);
+      setShowArchiveConfirm(false);
     }
   };
 
@@ -62,9 +70,9 @@ export function ArtistProfile({
     { id: 'Overview', label: 'Overview' },
     { id: 'Music', label: 'Music' },
     { id: 'Social', label: 'Social' },
-    { id: 'Projects', label: 'Projects' },
-    { id: 'Sessions', label: 'Sessions' },
-    { id: 'Releases', label: 'Releases' },
+    { id: 'Projects', label: `Projects (${projects.length})` },
+    { id: 'Sessions', label: `Sessions (${sessions.length})` },
+    { id: 'Releases', label: `Releases (${releases.length})` },
   ];
 
   const renderTabContent = () => {
@@ -147,11 +155,121 @@ export function ArtistProfile({
           </Card>
         );
       case 'Projects':
-        return <EmptyState title="Projects" description="Artist projects will appear here." />;
+        if (!projects || projects.length === 0) {
+          return <EmptyState title="No Projects" description="This artist has not been assigned to any projects yet." />;
+        }
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {projects.map((proj: any) => (
+              <Card key={proj.id} className="hover:border-neutral-300 transition-colors">
+                <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-neutral-900 font-display text-base">{proj.title}</h4>
+                      {proj.target_release_date && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Calendar className="h-3 w-3" /> Target: {formatDate(proj.target_release_date)}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant="outline">{proj.status}</Badge>
+                  </div>
+                  <div className="pt-2 border-t border-neutral-100 flex justify-end">
+                    <Link
+                      href={`/projects/${proj.id}`}
+                      className="text-xs font-semibold text-[#D71920] hover:underline flex items-center gap-1"
+                    >
+                      View Project <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        );
       case 'Sessions':
-        return <EmptyState title="Sessions" description="Artist sessions will appear here." />;
+        if (!sessions || sessions.length === 0) {
+          return <EmptyState title="No Sessions" description="No studio sessions recorded for this artist yet." />;
+        }
+        return (
+          <div className="space-y-3">
+            {sessions.map((sess: any) => (
+              <Card key={sess.id}>
+                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-neutral-900 text-sm">
+                        {sess.project?.title || sess.session_type}
+                      </span>
+                      <Badge variant="outline" className="text-[11px]">{sess.session_type}</Badge>
+                      {sess.status === 'Cancelled' ? (
+                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300">Cancelled</Badge>
+                      ) : sess.status === 'Completed' ? (
+                        <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">Completed</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Active</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" /> {formatDate(sess.session_date)}
+                      </span>
+                      {sess.start_time && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> {sess.start_time.slice(0, 5)} - {sess.end_time?.slice(0, 5)}
+                        </span>
+                      )}
+                      {sess.duration_minutes ? (
+                        <span>({formatDuration(sess.duration_minutes)})</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <Link
+                    href="/sessions"
+                    className="text-xs font-semibold text-[#D71920] hover:underline flex items-center gap-1 self-start sm:self-center"
+                  >
+                    Sessions <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        );
       case 'Releases':
-        return <EmptyState title="Releases" description="Artist releases will appear here." />;
+        if (!releases || releases.length === 0) {
+          return <EmptyState title="No Releases" description="No releases recorded for this artist yet." />;
+        }
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {releases.map((rel: any) => (
+              <Card key={rel.id}>
+                <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-neutral-900 font-display text-sm">{rel.title}</h4>
+                      {rel.release_date && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Calendar className="h-3 w-3" /> Released: {formatDate(rel.release_date)}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant="outline">{rel.status}</Badge>
+                  </div>
+                  {rel.spotify_url && (
+                    <a
+                      href={rel.spotify_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-emerald-600 hover:underline flex items-center gap-1"
+                    >
+                      <Disc className="h-3 w-3" /> Listen on Spotify
+                    </a>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        );
       default:
         return null;
     }
@@ -190,7 +308,15 @@ export function ArtistProfile({
             <GenerateArtistLoginDialog artist={artist} initialLinkedUser={linkedUser} />
           )}
           {canEdit && <Button variant="outline" onClick={() => router.push(`/artists/${artist.id}/edit`)}>Edit Profile</Button>}
-          {canDelete && <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>Delete</Button>}
+          {canDelete && (
+            <Button
+              variant="outline"
+              className="text-amber-700 border-amber-300 hover:bg-amber-50"
+              onClick={() => setShowArchiveConfirm(true)}
+            >
+              Archive Artist
+            </Button>
+          )}
         </div>
       </div>
 
@@ -200,14 +326,14 @@ export function ArtistProfile({
         {renderTabContent()}
       </div>
 
-      {showDeleteConfirm && (
+      {showArchiveConfirm && (
         <ConfirmDialog
-          title="Delete Artist"
-          description={`Are you sure you want to delete ${artist.stage_name}? This action cannot be undone.`}
-          confirmLabel={isDeleting ? 'Deleting...' : 'Delete'}
+          title="Archive Artist"
+          description={`Are you sure you want to archive ${artist.stage_name}? Their status will be set to Inactive and their profile will be archived.`}
+          confirmLabel={isDeleting ? 'Archiving...' : 'Archive Artist'}
           cancelLabel="Cancel"
-          onConfirm={handleDelete}
-          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={handleArchive}
+          onCancel={() => setShowArchiveConfirm(false)}
           variant="destructive"
         />
       )}

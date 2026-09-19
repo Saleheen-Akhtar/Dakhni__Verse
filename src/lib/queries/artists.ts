@@ -46,16 +46,29 @@ export async function getArtists(filters?: { status?: string; role?: string; sea
 }
 
 async function getArtistsImpl(filters?: { status?: string; role?: string; search?: string; page?: number; pageSize?: number }) {
-  const supabase = await createClient();
-  let query = supabase.from('artists').select('id, stage_name, legal_name, profile_image_url, location, status, dakhni_verse_role, date_joined', { count: 'exact' });
+  const [supabase, profile] = await Promise.all([
+    createClient(),
+    getCurrentUserProfile(),
+  ]);
 
-  if (filters?.status && filters.status !== 'All') {
-    query = query.eq('status', filters.status);
-  } else {
-    // Push exclusions directly to PostgreSQL to prevent loading applicants into memory
+  const isManager = profile?.role === 'Manager';
+
+  // Omit legal_name from directory select to prevent PII leakage to non-managers
+  let query = supabase.from('artists').select('id, stage_name, profile_image_url, location, status, dakhni_verse_role, date_joined', { count: 'exact' });
+
+  // Non-managers can NEVER query or view Pending/Rejected applicants
+  if (!isManager) {
     query = query
       .not('status', 'in', '("Pending","Rejected")')
       .not('dakhni_verse_role', 'in', '("Pending Applicant","Rejected Applicant","Re-Application")');
+  }
+
+  if (filters?.status && filters.status !== 'All') {
+    if (isManager) {
+      query = query.eq('status', filters.status);
+    } else if (filters.status !== 'Pending' && filters.status !== 'Rejected') {
+      query = query.eq('status', filters.status);
+    }
   }
 
   if (filters?.role) {
@@ -65,7 +78,11 @@ async function getArtistsImpl(filters?: { status?: string; role?: string; search
   if (filters?.search) {
     const s = filters.search.trim().replace(/[%_(),]/g, '');
     if (s) {
-      query = query.or(`stage_name.ilike.%${s}%,legal_name.ilike.%${s}%`);
+      if (isManager) {
+        query = query.or(`stage_name.ilike.%${s}%,legal_name.ilike.%${s}%`);
+      } else {
+        query = query.ilike('stage_name', `%${s}%`);
+      }
     }
   }
 
@@ -406,7 +423,7 @@ export async function getArtistStats(artistId: string) {
   ] = await Promise.all([
     supabase.from('projects').select('*', { count: 'exact', head: true }).eq('artist_id', artistId).not('status', 'in', '("Released","On Hold","Cancelled")'),
     supabase.from('projects').select('*', { count: 'exact', head: true }).eq('artist_id', artistId).eq('status', 'Released'),
-    supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('artist_id', artistId),
+    supabase.from('sessions').select('*', { count: 'exact', head: true }).eq('artist_id', artistId).not('status', 'eq', 'Cancelled'),
     supabase.from('releases').select('*', { count: 'exact', head: true }).eq('artist_id', artistId)
   ]);
 

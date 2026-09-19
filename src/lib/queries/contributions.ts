@@ -41,9 +41,9 @@ export async function getContributions(filters?: {
   return result;
 }
 
-export async function createContribution(data: any, userId?: string) {
+export async function createContribution(data: any) {
   const { user, supabase } = await requireManagerAction();
-  const authUser = userId || user.id;
+  const authUser = user.id;
   
   const rawData = { ...data };
   if (rawData.date && !rawData.contribution_date) {

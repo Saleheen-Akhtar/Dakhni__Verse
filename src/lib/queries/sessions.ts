@@ -24,7 +24,7 @@ export async function getSessions(filters?: {
     id, artist_id, project_id, session_type, engineer_id, session_date, start_time, end_time, duration_minutes, notes, status, cancellation_reason, cancelled_at, cancelled_by, created_at,
     artist:artists!artist_id(id, stage_name, phone, location),
     project:projects!project_id(id, title),
-    engineer:artists!engineer_id(id, stage_name, phone)
+    engineer:artists!engineer_id(id, stage_name)
   `, { count: 'exact' });
 
   if (filters?.artist_id) query = query.eq('artist_id', filters.artist_id);
@@ -54,12 +54,12 @@ export async function getSessions(filters?: {
   return result;
 }
 
-export async function createSession(data: any, userId?: string) {
+export async function createSession(data: any) {
   const { user, profile, supabase } = await requireUserSession();
   if (profile.role !== 'Manager' && profile.role !== 'Producer') {
     throw new Error('Unauthorized: Only managers and producers can schedule sessions');
   }
-  const authUser = userId || user.id;
+  const authUser = user.id;
   
   const rawData = { ...data };
   if (rawData.date && !rawData.session_date) {
@@ -157,12 +157,6 @@ export async function cancelSession(id: string, reason?: string) {
     throw new Error('Unauthorized to cancel this session');
   }
 
-  const currentNotes = existing.notes || '';
-  const prefix = '[CANCELLED]';
-  const updatedNotes = currentNotes.includes(prefix)
-    ? currentNotes
-    : `${prefix}${reason ? ` Reason: ${reason}.` : ''} ${currentNotes}`.trim();
-
   const { error } = await supabase
     .from('sessions')
     .update({ 
@@ -170,7 +164,6 @@ export async function cancelSession(id: string, reason?: string) {
       cancellation_reason: reason || null,
       cancelled_at: new Date().toISOString(),
       cancelled_by: user.id,
-      notes: updatedNotes 
     })
     .eq('id', id);
 
@@ -200,11 +193,6 @@ export async function restoreSession(id: string) {
     throw new Error('Unauthorized to restore this session');
   }
 
-  const currentNotes = existing.notes || '';
-  const updatedNotes = currentNotes
-    .replace(/\[CANCELLED\](\s*Reason:[^.]*\.)?/g, '')
-    .trim();
-
   const { error } = await supabase
     .from('sessions')
     .update({ 
@@ -212,7 +200,6 @@ export async function restoreSession(id: string) {
       cancellation_reason: null,
       cancelled_at: null,
       cancelled_by: null,
-      notes: updatedNotes 
     })
     .eq('id', id);
 

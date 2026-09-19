@@ -63,13 +63,13 @@ export async function getContributions(filters?: any) {
   return mapped;
 }
 
-export async function createContribution(data: any, userId?: string) {
+export async function createContribution(data: any) {
   const payload = { ...data };
   if (payload.date && !payload.contribution_date) {
     payload.contribution_date = payload.date;
   }
   delete payload.date;
-  return baseCreateContribution(payload, userId);
+  return baseCreateContribution(payload);
 }
 
 export async function getExpenses(filters?: any) {
@@ -83,13 +83,13 @@ export async function getExpenses(filters?: any) {
   return mapped;
 }
 
-export async function createExpense(data: any, userId?: string) {
+export async function createExpense(data: any) {
   const payload = { ...data };
   if (payload.date && !payload.expense_date) {
     payload.expense_date = payload.date;
   }
   delete payload.date;
-  return baseCreateExpense(payload, userId);
+  return baseCreateExpense(payload);
 }
 
 export async function getFinanceSummaries() {

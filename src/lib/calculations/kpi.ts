@@ -102,7 +102,7 @@ export async function getSessionCount(dateRange?: DateRange): Promise<number> {
 
 export async function getStudioHours(dateRange?: DateRange): Promise<number> {
   const supabase = await createClient();
-  let query = supabase.from("sessions").select("duration_minutes");
+  let query = supabase.from("sessions").select("duration_minutes").not("status", "eq", "Cancelled");
 
   if (dateRange) {
     query = query
@@ -248,7 +248,8 @@ export async function getDashboardKPIs(dateRange?: DateRange): Promise<Dashboard
 
   let sessionsQuery = supabase
     .from("sessions")
-    .select("duration_minutes", { count: "exact" });
+    .select("duration_minutes", { count: "exact" })
+    .not("status", "eq", "Cancelled");
 
   let expensesQuery = supabase
     .from("expenses")

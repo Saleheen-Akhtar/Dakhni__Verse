@@ -40,9 +40,9 @@ export async function getExpenses(filters?: {
   return result;
 }
 
-export async function createExpense(data: any, userId?: string) {
+export async function createExpense(data: any) {
   const { user, supabase } = await requireManagerAction();
-  const authUser = userId || user.id;
+  const authUser = user.id;
 
   const rawData = { ...data };
   if (rawData.date && !rawData.expense_date) {

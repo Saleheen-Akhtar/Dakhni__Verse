@@ -194,12 +194,27 @@ export function SessionList({
       id: 'status',
       cell: ({ row }: any) => {
         const isCancelled = row.original.status === 'Cancelled' || row.original.notes?.includes('[CANCELLED]');
-        return isCancelled ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-            <Ban className="h-3 w-3" />
-            Cancelled
-          </span>
-        ) : (
+        const isCompleted = row.original.status === 'Completed';
+
+        if (isCancelled) {
+          return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+              <Ban className="h-3 w-3" />
+              Cancelled
+            </span>
+          );
+        }
+
+        if (isCompleted) {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+              Completed
+            </span>
+          );
+        }
+
+        return (
           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             Active
@@ -331,7 +346,7 @@ export function SessionList({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {['Recording', 'Mixing', 'Writing', 'Production', 'Mastering', 'Rehearsal', 'Other'].map((t) => (
+                {['Recording', 'Production', 'Editing', 'Mixing', 'Mastering', 'Rehearsal', 'Other'].map((t) => (
                   <SelectItem key={t} value={t}>
                     {t}
                   </SelectItem>

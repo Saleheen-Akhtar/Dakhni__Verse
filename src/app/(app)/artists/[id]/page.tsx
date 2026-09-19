@@ -2,6 +2,9 @@ import { getCurrentUserProfile } from '@/lib/auth/helpers';
 import { getArtistById } from '@/lib/queries/artists';
 import { getArtistKPIs } from '@/lib/calculations/artist-kpi';
 import { getLinkedUserForArtist } from '@/lib/auth/artist-login-actions';
+import { getProjects } from '@/lib/queries/projects';
+import { getSessions } from '@/lib/queries/sessions';
+import { getReleases } from '@/lib/queries/releases';
 import { notFound } from 'next/navigation';
 import { ArtistProfile } from '@/components/artists/artist-profile';
 
@@ -15,10 +18,13 @@ export default async function ArtistProfilePage({
     getCurrentUserProfile(),
   ]);
 
-  const [artist, kpis, linkedUser] = await Promise.all([
+  const [artist, kpis, linkedUser, projects, sessions, releases] = await Promise.all([
     getArtistById(id),
     getArtistKPIs(id),
     getLinkedUserForArtist(id),
+    getProjects({ artist_id: id }),
+    getSessions({ artist_id: id }),
+    getReleases({ artist_id: id }),
   ]);
 
   if (!artist) {
@@ -37,6 +43,9 @@ export default async function ArtistProfilePage({
       canDelete={canDelete}
       isManager={isManager}
       linkedUser={linkedUser}
+      projects={projects}
+      sessions={sessions}
+      releases={releases}
     />
   );
 }

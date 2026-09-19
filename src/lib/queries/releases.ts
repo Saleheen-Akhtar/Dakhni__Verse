@@ -68,9 +68,9 @@ export async function getReleaseById(id: string) {
   return data;
 }
 
-export async function createRelease(data: any, userId?: string) {
+export async function createRelease(data: any) {
   const { user, supabase } = await requireManagerAction();
-  const authUser = userId || user.id;
+  const authUser = user.id;
   const validated = createReleaseSchema.parse(data);
   
   const insertData: any = { ...validated, created_by: authUser };
