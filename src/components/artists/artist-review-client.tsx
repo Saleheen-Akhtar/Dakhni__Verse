@@ -8,7 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
-import { acceptArtistApplication, rejectArtistApplication } from '@/lib/queries/artists';
+import {
+  acceptArtistApplication,
+  rejectArtistApplication,
+  approveAndCreateArtistAccount,
+  type ApproveArtistAccountResult,
+} from '@/lib/queries/artists';
 import type { ArtistWithProfile } from '@/types';
 import {
   ArrowLeft,
@@ -25,7 +30,13 @@ import {
   Calendar,
   AlertCircle,
   Eye,
-  RotateCcw
+  RotateCcw,
+  Sparkles,
+  Key,
+  Copy,
+  Check,
+  Send,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface ArtistReviewClientProps {
@@ -44,6 +55,83 @@ export function ArtistReviewClient({
   const [rejectedList, setRejectedList] = useState<ArtistWithProfile[]>(initialRejected);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedArtist, setSelectedArtist] = useState<ArtistWithProfile | null>(null);
+  const [accountModalData, setAccountModalData] = useState<ApproveArtistAccountResult | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [copiedMessage, setCopiedMessage] = useState(false);
+
+  const copyToClipboard = async (text: string, type: 'password' | 'message') => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      if (type === 'password') {
+        setCopiedPassword(true);
+        setTimeout(() => setCopiedPassword(false), 2500);
+      } else {
+        setCopiedMessage(true);
+        setTimeout(() => setCopiedMessage(false), 2500);
+      }
+
+      toast({
+        title: type === 'password' ? 'Password Copied' : 'Invite Message Copied',
+        description: 'Copied to clipboard ready to paste.',
+      });
+    } catch {
+      toast({
+        title: 'Copy Failed',
+        description: 'Please copy manually.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleApproveAndCreateAccount = async (artist: ArtistWithProfile) => {
+    if (processingId) return;
+    if (!artist.email) {
+      toast({
+        title: 'Email Required',
+        description: `Cannot create portal account: "${artist.stage_name}" has no email address on file.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setProcessingId(artist.id);
+
+    try {
+      const res = await approveAndCreateArtistAccount(artist.id);
+
+      // Update local state
+      setPendingList((prev) => prev.filter((a) => a.id !== artist.id));
+      setRejectedList((prev) => prev.filter((a) => a.id !== artist.id));
+      if (selectedArtist?.id === artist.id) setSelectedArtist(null);
+
+      setAccountModalData(res);
+
+      toast({
+        title: 'Artist Approved & Account Created! 🎉',
+        description: `Portal account ready for ${res.stage_name} (${res.email}). Credentials generated.`,
+      });
+
+      router.refresh();
+    } catch (err: any) {
+      toast({
+        title: 'Account Creation Failed',
+        description: err.message || 'Could not approve artist and create account.',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const handleAccept = async (artist: ArtistWithProfile) => {
     if (processingId) return;
@@ -358,7 +446,7 @@ export function ArtistReviewClient({
                     Full Details
                   </Button>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {activeTab === 'pending' ? (
                       <>
                         <Button
@@ -372,13 +460,24 @@ export function ArtistReviewClient({
                           {isProcessing ? 'Processing...' : 'Reject'}
                         </Button>
                         <Button
+                          variant="outline"
                           size="sm"
                           disabled={isProcessing}
                           onClick={() => handleAccept(artist)}
-                          className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                          className="text-xs text-neutral-700 border-neutral-300 hover:bg-neutral-100"
                         >
-                          <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                          {isProcessing ? 'Processing...' : 'Accept & Add to Roster'}
+                          <CheckCircle className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+                          {isProcessing ? 'Processing...' : 'Accept Only'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={isProcessing || !artist.email}
+                          onClick={() => handleApproveAndCreateAccount(artist)}
+                          className="text-xs bg-[#D71920] hover:bg-[#b0141a] text-white shadow-sm font-semibold"
+                          title={!artist.email ? 'Artist has no email address' : 'Approve & create artist portal account'}
+                        >
+                          <Sparkles className="h-3.5 w-3.5 mr-1.5 text-amber-300" />
+                          {isProcessing ? 'Creating...' : 'Approve & Create Account'}
                         </Button>
                       </>
                     ) : (
@@ -548,11 +647,21 @@ export function ArtistReviewClient({
                     Reject Application
                   </Button>
                   <Button
+                    variant="outline"
                     disabled={processingId === selectedArtist.id}
                     onClick={() => handleAccept(selectedArtist)}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="text-neutral-700 border-neutral-300 hover:bg-neutral-100"
                   >
-                    Accept into Collective
+                    <CheckCircle className="h-4 w-4 mr-1.5 text-emerald-600" />
+                    Accept Only
+                  </Button>
+                  <Button
+                    disabled={processingId === selectedArtist.id || !selectedArtist.email}
+                    onClick={() => handleApproveAndCreateAccount(selectedArtist)}
+                    className="bg-[#D71920] hover:bg-[#b0141a] text-white shadow-sm font-semibold"
+                  >
+                    <Sparkles className="h-4 w-4 mr-1.5 text-amber-300" />
+                    {processingId === selectedArtist.id ? 'Creating Account...' : 'Approve & Create Account'}
                   </Button>
                 </>
               ) : (
@@ -564,6 +673,167 @@ export function ArtistReviewClient({
                   Reconsider & Accept
                 </Button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Account Created & Credentials Modal */}
+      {accountModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-neutral-200 animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 text-white p-6 relative">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shrink-0">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold font-display text-white flex items-center gap-2">
+                    Artist Portal Account Ready! 🎉
+                  </h3>
+                  <p className="text-xs text-neutral-300 mt-0.5">
+                    Account active with role <span className="text-amber-400 font-semibold">Artist</span> and live roster access.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAccountModalData(null)}
+                className="absolute top-4 right-4 text-neutral-400 hover:text-white p-1 rounded-lg text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {accountModalData.merged && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">Merged Profile:</span> Submitted details were merged into the existing artist profile without creating a duplicate. Credentials updated.
+                  </div>
+                </div>
+              )}
+
+              {/* Credentials Box */}
+              <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200/80 space-y-3">
+                <div className="flex items-center justify-between border-b border-neutral-200/60 pb-2.5">
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Artist</span>
+                  <span className="text-sm font-bold text-neutral-900">{accountModalData.stage_name}</span>
+                </div>
+
+                <div className="flex items-center justify-between border-b border-neutral-200/60 pb-2.5">
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Portal URL</span>
+                  <span className="text-xs font-mono text-neutral-800 bg-white px-2 py-1 rounded border border-neutral-200">
+                    /login
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between border-b border-neutral-200/60 pb-2.5">
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Login Email</span>
+                  <span className="text-xs font-mono font-medium text-neutral-900 bg-white px-2 py-1 rounded border border-neutral-200">
+                    {accountModalData.email}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between pt-0.5">
+                  <div>
+                    <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider block">Temporary Password</span>
+                    <span className="text-[11px] text-neutral-400">Can be changed after login</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-mono font-bold text-[#D71920] bg-red-50 border border-red-200 px-2.5 py-1 rounded select-all">
+                      {accountModalData.temp_password}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(accountModalData.temp_password || '', 'password')}
+                      className="h-8 px-2 text-neutral-600 hover:text-neutral-900"
+                      title="Copy password"
+                    >
+                      {copiedPassword ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ready-to-send Message Preview */}
+              <div>
+                <label className="text-xs font-semibold text-neutral-600 uppercase tracking-wider block mb-1.5">
+                  Invitation Message (WhatsApp / Email / DM)
+                </label>
+                <div className="p-3 bg-neutral-100 rounded-lg text-xs font-sans text-neutral-700 whitespace-pre-wrap leading-relaxed border border-neutral-200 select-all max-h-36 overflow-y-auto">
+{`🎵 Welcome to Dakhni Verse, ${accountModalData.stage_name}!
+
+Your artist portal account is ready. You can now log in to view your projects, upcoming studio sessions, and collective updates:
+
+🔗 Portal Login: ${typeof window !== 'undefined' ? window.location.origin : 'https://dakhni-verse.vercel.app'}/login
+📧 Email: ${accountModalData.email}
+🔑 Temporary Password: ${accountModalData.temp_password}
+
+(Please log in and update your password when you first sign in!)`}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dakhni-verse.vercel.app';
+                    const msg = `🎵 Welcome to Dakhni Verse, ${accountModalData.stage_name}!\n\nYour artist portal account is ready. You can now log in to view your projects, upcoming studio sessions, and collective updates:\n\n🔗 Portal Login: ${origin}/login\n📧 Email: ${accountModalData.email}\n🔑 Temporary Password: ${accountModalData.temp_password}\n\n(Please log in and update your password when you first sign in!)`;
+                    copyToClipboard(msg, 'message');
+                  }}
+                  className="w-full sm:flex-1 text-xs border-neutral-300 hover:bg-neutral-100 font-medium"
+                >
+                  {copiedMessage ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+                      Invitation Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5 mr-1.5" />
+                      Copy Invitation Message
+                    </>
+                  )}
+                </Button>
+
+                {(() => {
+                  const cleanPhone = (accountModalData.phone || '').replace(/[^0-9]/g, '');
+                  const intlPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dakhni-verse.vercel.app';
+                  const msg = `🎵 Welcome to Dakhni Verse, ${accountModalData.stage_name}!\n\nYour artist portal account is ready. You can now log in to view your projects, upcoming studio sessions, and collective updates:\n\n🔗 Portal Login: ${origin}/login\n📧 Email: ${accountModalData.email}\n🔑 Temporary Password: ${accountModalData.temp_password}\n\n(Please log in and update your password when you first sign in!)`;
+                  const waUrl = intlPhone
+                    ? `https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`
+                    : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+
+                  return (
+                    <a
+                      href={waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto inline-flex items-center justify-center text-xs font-semibold px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                    >
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                      Open WhatsApp
+                    </a>
+                  );
+                })()}
+
+                <Button
+                  type="button"
+                  onClick={() => setAccountModalData(null)}
+                  className="w-full sm:w-auto text-xs bg-neutral-900 hover:bg-neutral-800 text-white font-medium"
+                >
+                  Done
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -753,3 +753,113 @@ export async function rejectArtistApplication(artistId: string, reason?: string)
 
   return { success: true, stage_name: artist?.stage_name };
 }
+
+export interface ApproveArtistAccountResult {
+  success: boolean;
+  artist_id: string;
+  user_id: string;
+  stage_name: string;
+  email: string;
+  temp_password?: string;
+  account_created: boolean;
+  phone?: string | null;
+  merged?: boolean;
+}
+
+export async function approveAndCreateArtistAccount(
+  artistId: string,
+  customPassword?: string
+): Promise<ApproveArtistAccountResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Authentication required');
+  const { data: currentUser } = await supabase.from('users').select('role').eq('id', user.id).single();
+  if (currentUser?.role !== 'Manager') throw new Error('Manager role required to approve and create artist accounts');
+
+  // Fetch applicant details
+  const { data: applicant, error: fetchErr } = await supabase
+    .from('artists')
+    .select('*, music_profile:artist_music_profiles(*), social_links:artist_social_links(*)')
+    .eq('id', artistId)
+    .single();
+
+  if (fetchErr || !applicant) {
+    throw new Error('Artist application not found');
+  }
+
+  if (!applicant.email) {
+    throw new Error('This artist application does not have an email address. An email is required to create a login account.');
+  }
+
+  let targetArtistId = artistId;
+  let wasMerged = false;
+
+  // If this is a re-application / duplicate of an existing artist, merge first
+  if (applicant.duplicate_of_id) {
+    targetArtistId = applicant.duplicate_of_id;
+    wasMerged = true;
+
+    // Merge submitted fields into existing active artist record
+    const updateFields: any = { updated_at: new Date().toISOString() };
+    if (applicant.legal_name) updateFields.legal_name = applicant.legal_name;
+    if (applicant.profile_image_url) updateFields.profile_image_url = applicant.profile_image_url;
+    if (applicant.location) updateFields.location = applicant.location;
+    if (applicant.phone) updateFields.phone = applicant.phone;
+    if (applicant.email) updateFields.email = applicant.email;
+
+    await supabase.from('artists').update(updateFields).eq('id', targetArtistId);
+
+    // Merge music profile
+    if (applicant.music_profile) {
+      const { id: _pId, artist_id: _aId, ...profileData } = applicant.music_profile;
+      await supabase.from('artist_music_profiles').upsert({
+        artist_id: targetArtistId,
+        ...profileData,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'artist_id' });
+    }
+
+    // Merge social links
+    if (applicant.social_links && applicant.social_links.length > 0) {
+      await supabase.from('artist_social_links').delete().eq('artist_id', targetArtistId);
+      const linksToInsert = applicant.social_links.map((l: any) => ({
+        artist_id: targetArtistId,
+        platform: l.platform,
+        url: l.url,
+      }));
+      await supabase.from('artist_social_links').insert(linksToInsert);
+    }
+
+    // Delete the pending duplicate record
+    await supabase.from('artists').delete().eq('id', artistId);
+  }
+
+  // Call the secure RPC to generate/link auth account
+  const { data: rpcResult, error: rpcError } = await supabase.rpc('approve_and_create_artist_account', {
+    p_artist_id: targetArtistId,
+    p_temp_password: customPassword || null,
+  });
+
+  if (rpcError) {
+    console.error('RPC approve_and_create_artist_account error:', rpcError);
+    throw new Error(rpcError.message || 'Failed to create artist login account');
+  }
+
+  revalidatePath('/artists');
+  revalidatePath('/artists/review');
+  revalidatePath('/dashboard');
+  revalidatePath(`/artists/${targetArtistId}`);
+  revalidateTag('artist-options');
+
+  return {
+    success: true,
+    artist_id: targetArtistId,
+    user_id: rpcResult.user_id,
+    stage_name: rpcResult.stage_name || applicant.stage_name,
+    email: rpcResult.email || applicant.email,
+    temp_password: rpcResult.temp_password,
+    account_created: rpcResult.account_created,
+    phone: applicant.phone || null,
+    merged: wasMerged,
+  };
+}
