@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -11,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { toast } from '@/components/ui/use-toast';
 import { formatDuration } from '@/lib/utils/format';
-import { useEffect, useState } from 'react';
+import { checkSessionConflicts, SessionConflict } from '@/lib/queries/session-conflicts';
+import { AlertTriangle, Clock } from 'lucide-react';
 
 export function SessionForm({ artists, projects }: { artists: any[]; projects: any[] }) {
   const router = useRouter();
@@ -20,9 +22,15 @@ export function SessionForm({ artists, projects }: { artists: any[]; projects: a
     defaultValues: { session_date: new Date().toISOString().split('T')[0], session_type: 'Recording', start_time: '', end_time: '' }
   });
 
+  const sessionDate = useWatch({ control: form.control, name: 'session_date' });
   const startTime = useWatch({ control: form.control, name: 'start_time' });
   const endTime = useWatch({ control: form.control, name: 'end_time' });
+  const artistId = useWatch({ control: form.control, name: 'artist_id' });
+  const engineerId = useWatch({ control: form.control, name: 'engineer_id' });
+
   const [duration, setDuration] = useState(0);
+  const [conflicts, setConflicts] = useState<SessionConflict[]>([]);
+  const [checkingConflict, setCheckingConflict] = useState(false);
 
   useEffect(() => {
     if (startTime && endTime) {
@@ -31,8 +39,37 @@ export function SessionForm({ artists, projects }: { artists: any[]; projects: a
       let diff = (endH * 60 + endM) - (startH * 60 + startM);
       if (diff < 0) diff += 24 * 60; // Overnight
       setDuration(diff);
+    } else {
+      setDuration(0);
     }
   }, [startTime, endTime]);
+
+  useEffect(() => {
+    if (!sessionDate || !startTime || !endTime) {
+      setConflicts([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setCheckingConflict(true);
+      try {
+        const res = await checkSessionConflicts({
+          sessionDate,
+          startTime,
+          endTime,
+          artistId,
+          engineerId,
+        });
+        setConflicts(res.conflicts);
+      } catch (err) {
+        console.error('Error checking session conflicts:', err);
+      } finally {
+        setCheckingConflict(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [sessionDate, startTime, endTime, artistId, engineerId]);
 
   const onSubmit = async (data: any) => {
     try {
@@ -94,8 +131,35 @@ export function SessionForm({ artists, projects }: { artists: any[]; projects: a
         <FormField control={form.control} name="notes" render={({ field }) => (
           <FormItem><FormLabel>Notes</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
         )} />
+        {conflicts.length > 0 && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-50/80 p-4 space-y-2.5">
+            <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+              <span>Studio Double-Booking Conflict Detected</span>
+            </div>
+            <p className="text-xs text-amber-800">
+              {conflicts.length === 1 ? "An existing session overlaps" : `${conflicts.length} existing sessions overlap`} with this scheduled time slot:
+            </p>
+            <ul className="text-xs text-amber-950 space-y-1.5 list-disc list-inside bg-white/60 p-2.5 rounded border border-amber-200">
+              {conflicts.map((c: SessionConflict) => (
+                <li key={c.id}>
+                  <strong className="font-semibold">{c.session_type} Session</strong> (
+                  {c.start_time ? c.start_time.substring(0, 5) : "?"} - {c.end_time ? c.end_time.substring(0, 5) : "?"}
+                  ):
+                  {c.artist_name ? ` Artist: ${c.artist_name}` : ""}
+                  {c.engineer_name ? ` • Engineer: ${c.engineer_name}` : ""}
+                  {c.project_title ? ` • "${c.project_title}"` : ""}
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-amber-700 italic">
+              Please verify if another room/setup is available or select an alternative time.
+            </p>
+          </div>
+        )}
+
         <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? 'Logging...' : 'Log Session'}
+          {form.formState.isSubmitting ? 'Logging...' : conflicts.length > 0 ? 'Log Session Anyway' : 'Log Session'}
         </Button>
       </form>
     </Form>

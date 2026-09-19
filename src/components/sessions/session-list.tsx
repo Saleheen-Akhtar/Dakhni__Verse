@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatDate, formatDuration } from '@/lib/utils/format';
+import { StudioCalendar } from '@/components/sessions/studio-calendar';
+import { CalendarDays, LayoutList } from 'lucide-react';
 
 interface SessionListProps {
   sessions: any[];
@@ -34,6 +36,7 @@ export function SessionList({
   const [typeFilter, setTypeFilter] = useState(initialType);
   const [dateFrom, setDateFrom] = useState(initialFrom);
   const [dateTo, setDateTo] = useState(initialTo);
+  const [view, setView] = useState<'calendar' | 'table'>('calendar');
 
   const updateFilters = (newArtist: string, newType: string, newFrom: string, newTo: string, newPage: number = 1) => {
     const params = new URLSearchParams();
@@ -97,41 +100,76 @@ export function SessionList({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-4">
-        <Select value={artistFilter} onValueChange={handleArtistChange}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Artists" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Artists</SelectItem>
-            {artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={typeFilter} onValueChange={handleTypeChange}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Types" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {['Recording', 'Mixing', 'Writing', 'Production', 'Mastering', 'Rehearsal', 'Other'].map(t => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2">
-          <Input 
-            type="date" 
-            value={dateFrom} 
-            onChange={e => handleFromChange(e.target.value)} 
-            className="w-[150px]" 
-          />
-          <span className="text-xs text-muted-foreground">to</span>
-          <Input 
-            type="date" 
-            value={dateTo} 
-            onChange={e => handleToChange(e.target.value)} 
-            className="w-[150px]" 
-          />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={artistFilter} onValueChange={handleArtistChange}>
+            <SelectTrigger className="w-[170px]"><SelectValue placeholder="All Artists" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Artists</SelectItem>
+              {artists.map(a => <SelectItem key={a.id} value={a.id}>{a.stage_name || a.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={handleTypeChange}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Types" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {['Recording', 'Mixing', 'Writing', 'Production', 'Mastering', 'Rehearsal', 'Other'].map(t => (
+                <SelectItem key={t} value={t}>{t}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2">
+            <Input 
+              type="date" 
+              value={dateFrom} 
+              onChange={e => handleFromChange(e.target.value)} 
+              className="w-[140px]" 
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input 
+              type="date" 
+              value={dateTo} 
+              onChange={e => handleToChange(e.target.value)} 
+              className="w-[140px]" 
+            />
+          </div>
+        </div>
+
+        {/* View Toggle */}
+        <div className="inline-flex rounded-lg bg-muted p-1 text-muted-foreground shrink-0 self-start sm:self-auto">
+          <button
+            onClick={() => setView('calendar')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+              view === 'calendar'
+                ? 'bg-white text-foreground shadow-sm'
+                : 'hover:text-foreground'
+            }`}
+          >
+            <CalendarDays className="h-4 w-4 text-[#D71920]" />
+            Calendar View
+          </button>
+          <button
+            onClick={() => setView('table')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+              view === 'table'
+                ? 'bg-white text-foreground shadow-sm'
+                : 'hover:text-foreground'
+            }`}
+          >
+            <LayoutList className="h-4 w-4" />
+            Table View
+          </button>
         </div>
       </div>
 
-      {sessions.length === 0 ? (
+      {view === 'calendar' ? (
+        <StudioCalendar
+          sessions={sessions}
+          artists={artists}
+          selectedArtist={artistFilter}
+          selectedType={typeFilter}
+        />
+      ) : sessions.length === 0 ? (
         <EmptyState title="No sessions recorded" description="Studio activity matching your filters will appear here." />
       ) : (
         <DataTable 
