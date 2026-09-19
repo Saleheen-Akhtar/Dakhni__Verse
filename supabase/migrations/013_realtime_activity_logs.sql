@@ -1,0 +1,16 @@
+-- =============================================================================
+-- Migration 013: Realtime Activity Logs Publication
+-- Enables Supabase Realtime CDC on public.activity_logs
+-- =============================================================================
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'activity_logs'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.activity_logs;
+    END IF;
+END $$;
