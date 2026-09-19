@@ -33,6 +33,7 @@ interface SessionListProps {
   initialTo?: string;
   currentPage?: number;
   pageSize?: number;
+  canManage?: boolean;
 }
 
 function computePresetDates(preset: string): { from: string; to: string } {
@@ -100,6 +101,7 @@ export function SessionList({
   initialTo = '',
   currentPage = 1,
   pageSize = 25,
+  canManage = true,
 }: SessionListProps) {
   const router = useRouter();
   const [artistFilter, setArtistFilter] = useState(initialArtist);
@@ -176,7 +178,7 @@ export function SessionList({
       header: 'Date & Time', 
       accessorKey: 'session_date', 
       cell: ({ row }: any) => {
-        const isCancelled = row.original.notes?.includes('[CANCELLED]');
+        const isCancelled = row.original.status === 'Cancelled' || row.original.notes?.includes('[CANCELLED]');
         return (
           <div className={isCancelled ? 'opacity-60 line-through' : ''}>
             <p className="font-semibold text-neutral-900">{formatDate(row.original.session_date || row.original.date)}</p>
@@ -191,7 +193,7 @@ export function SessionList({
       header: 'Status',
       id: 'status',
       cell: ({ row }: any) => {
-        const isCancelled = row.original.notes?.includes('[CANCELLED]');
+        const isCancelled = row.original.status === 'Cancelled' || row.original.notes?.includes('[CANCELLED]');
         return isCancelled ? (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
             <Ban className="h-3 w-3" />
@@ -243,7 +245,7 @@ export function SessionList({
       id: 'actions',
       cell: ({ row }: any) => {
         const session = row.original;
-        const isCancelled = session.notes?.includes('[CANCELLED]');
+        const isCancelled = session.status === 'Cancelled' || session.notes?.includes('[CANCELLED]');
         return (
           <div className="flex items-center gap-2">
             {!isCancelled && (
@@ -261,31 +263,33 @@ export function SessionList({
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setActionSession(session);
-              }}
-              title={isCancelled ? "Restore or Delete Session" : "Cancel or Delete Session"}
-              className={`inline-flex items-center justify-center h-7 px-2 rounded-md text-xs font-semibold border transition-colors ${
-                isCancelled
-                  ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-300"
-                  : "bg-neutral-50 text-neutral-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border-neutral-200"
-              }`}
-            >
-              {isCancelled ? (
-                <>
-                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                  <span>Restore</span>
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-3.5 w-3.5 mr-1 text-rose-500" />
-                  <span>Cancel</span>
-                </>
-              )}
-            </button>
+            {canManage && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActionSession(session);
+                }}
+                title={isCancelled ? "Restore or Delete Session" : "Cancel or Delete Session"}
+                className={`inline-flex items-center justify-center h-7 px-2 rounded-md text-xs font-semibold border transition-colors ${
+                  isCancelled
+                    ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-300"
+                    : "bg-neutral-50 text-neutral-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border-neutral-200"
+                }`}
+              >
+                {isCancelled ? (
+                  <>
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                    <span>Restore</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5 mr-1 text-rose-500" />
+                    <span>Cancel</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         );
       },
@@ -439,6 +443,7 @@ export function SessionList({
           artists={artists}
           selectedArtist={artistFilter}
           selectedType={typeFilter}
+          canBook={canManage}
         />
       ) : sessions.length === 0 ? (
         <EmptyState

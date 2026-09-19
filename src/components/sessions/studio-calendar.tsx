@@ -33,6 +33,10 @@ export interface SessionItem {
   duration_minutes?: number | null;
   session_type: string;
   notes?: string | null;
+  status?: string;
+  cancellation_reason?: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
   artist?: { id: string; stage_name?: string; name?: string; phone?: string | null; location?: string | null } | null;
   project?: { id: string; title: string } | null;
   engineer?: { id: string; stage_name?: string; name?: string; phone?: string | null } | null;
@@ -43,6 +47,7 @@ interface StudioCalendarProps {
   artists: any[];
   selectedArtist?: string;
   selectedType?: string;
+  canBook?: boolean;
 }
 
 // Session type styling map
@@ -101,7 +106,7 @@ export const SESSION_TYPE_COLORS: Record<
   },
 };
 
-export function StudioCalendar({ sessions }: StudioCalendarProps) {
+export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps) {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
@@ -338,12 +343,14 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
             </button>
           </div>
 
-          <Button asChild size="sm" className="h-8 text-xs font-semibold">
-            <Link href="/sessions/new">
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Book Session
-            </Link>
-          </Button>
+          {canBook && (
+            <Button asChild size="sm" className="h-8 text-xs font-semibold">
+              <Link href="/sessions/new">
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Book Session
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -406,7 +413,7 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
                       const style =
                         SESSION_TYPE_COLORS[session.session_type] ||
                         SESSION_TYPE_COLORS.Other;
-                      const isCancelled = session.notes?.includes("[CANCELLED]");
+                      const isCancelled = session.status === "Cancelled" || session.notes?.includes("[CANCELLED]");
 
                       return (
                         <button
@@ -504,7 +511,7 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
                         const style =
                           SESSION_TYPE_COLORS[session.session_type] ||
                           SESSION_TYPE_COLORS.Other;
-                        const isCancelled = session.notes?.includes("[CANCELLED]");
+                        const isCancelled = session.status === "Cancelled" || session.notes?.includes("[CANCELLED]");
 
                         return (
                           <div
@@ -587,10 +594,17 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
               <X className="h-5 w-5" />
             </button>
 
-            {selectedSession.notes?.includes('[CANCELLED]') && (
-              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
-                <Ban className="h-4 w-4 shrink-0 text-amber-600" />
-                <span className="font-semibold">This studio session is currently cancelled.</span>
+            {(selectedSession.status === 'Cancelled' || selectedSession.notes?.includes('[CANCELLED]')) && (
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <Ban className="h-4 w-4 shrink-0 text-amber-600" />
+                  <span className="font-semibold">This studio session is currently cancelled.</span>
+                </div>
+                {selectedSession.cancellation_reason && (
+                  <p className="text-amber-800 ml-6 text-[11px]">
+                    Reason: <span className="italic">{selectedSession.cancellation_reason}</span>
+                  </p>
+                )}
               </div>
             )}
 
@@ -610,7 +624,7 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
               >
                 {selectedSession.session_type} Session
               </span>
-              {selectedSession.notes?.includes('[CANCELLED]') && (
+              {(selectedSession.status === 'Cancelled' || selectedSession.notes?.includes('[CANCELLED]')) && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                   <Ban className="h-3 w-3" />
                   Cancelled
@@ -679,7 +693,7 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
 
             <div className="pt-3 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div>
-                {!selectedSession.notes?.includes('[CANCELLED]') ? (
+                {!(selectedSession.status === 'Cancelled' || selectedSession.notes?.includes('[CANCELLED]')) ? (
                   <Button
                     size="sm"
                     onClick={() => setReminderSession(selectedSession)}
@@ -694,26 +708,28 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {selectedSession.notes?.includes('[CANCELLED]') ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setActionSession(selectedSession)}
-                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 border-emerald-300"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                    Restore / Delete
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setActionSession(selectedSession)}
-                    className="text-xs font-semibold text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-300"
-                  >
-                    <Ban className="h-3.5 w-3.5 mr-1" />
-                    Cancel / Delete
-                  </Button>
+                {canBook && (
+                  (selectedSession.status === 'Cancelled' || selectedSession.notes?.includes('[CANCELLED]')) ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActionSession(selectedSession)}
+                      className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 border-emerald-300"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                      Restore / Delete
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActionSession(selectedSession)}
+                      className="text-xs font-semibold text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-300"
+                    >
+                      <Ban className="h-3.5 w-3.5 mr-1" />
+                      Cancel / Delete
+                    </Button>
+                  )
                 )}
 
                 {selectedSession.project?.id && (

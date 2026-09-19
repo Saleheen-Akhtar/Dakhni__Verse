@@ -40,7 +40,7 @@ export async function checkSessionConflicts(
   let query = supabase
     .from("sessions")
     .select(`
-      id, session_date, start_time, end_time, session_type, artist_id, engineer_id,
+      id, session_date, start_time, end_time, session_type, artist_id, engineer_id, notes, status,
       artist:artists!artist_id(id, stage_name),
       engineer:artists!engineer_id(id, stage_name),
       project:projects!project_id(id, title)
@@ -74,6 +74,9 @@ export async function checkSessionConflicts(
   const conflicts: SessionConflict[] = [];
 
   for (const session of existingSessions as any[]) {
+    // Skip cancelled sessions
+    if (session.status === "Cancelled" || session.notes?.includes("[CANCELLED]")) continue;
+
     const existingStartMin = toMinutes(session.start_time);
     const existingEndMin = toMinutes(session.end_time);
 

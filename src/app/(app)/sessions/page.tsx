@@ -1,4 +1,5 @@
 import { getSessions, getArtistOptions } from '@/lib/queries/sessions';
+import { getCurrentUserProfile } from '@/lib/auth/helpers';
 import { PageHeader } from '@/components/ui/page-header';
 import { SessionList } from '@/components/sessions/session-list';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ export default async function SessionsPage({
   searchParams?: Promise<{ artist_id?: string; project_id?: string; session_type?: string; from?: string; to?: string; page?: string }>;
 }) {
   const params = await searchParams;
-  const [sessions, artists] = await Promise.all([
+  const [sessions, artists, profile] = await Promise.all([
     getSessions({
       artist_id: params?.artist_id,
       project_id: params?.project_id,
@@ -22,18 +23,23 @@ export default async function SessionsPage({
       pageSize: 100,
     }),
     getArtistOptions(),
+    getCurrentUserProfile(),
   ]);
+
+  const canAddSession = profile?.role === 'Manager' || profile?.role === 'Producer';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <PageHeader title="Sessions" description="Studio session tracking" />
-        <Button asChild>
-          <Link href="/sessions/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Session
-          </Link>
-        </Button>
+        {canAddSession && (
+          <Button asChild>
+            <Link href="/sessions/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Session
+            </Link>
+          </Button>
+        )}
       </div>
       <SessionList 
         sessions={sessions} 
@@ -43,6 +49,7 @@ export default async function SessionsPage({
         initialFrom={params?.from || ''}
         initialTo={params?.to || ''}
         currentPage={params?.page ? Number(params.page) : 1}
+        canManage={canAddSession}
       />
     </div>
   );

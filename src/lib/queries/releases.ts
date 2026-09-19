@@ -69,7 +69,7 @@ export async function getReleaseById(id: string) {
 }
 
 export async function createRelease(data: any, userId?: string) {
-  const { user, supabase } = await requireUserSession();
+  const { user, supabase } = await requireManagerAction();
   const authUser = userId || user.id;
   const validated = createReleaseSchema.parse(data);
   
@@ -90,7 +90,7 @@ export async function createRelease(data: any, userId?: string) {
 }
 
 export async function updateRelease(id: string, data: any) {
-  const { supabase } = await requireUserSession();
+  const { supabase } = await requireManagerAction();
   const validated = updateReleaseSchema.parse(data);
   
   const updateData: any = { ...validated };

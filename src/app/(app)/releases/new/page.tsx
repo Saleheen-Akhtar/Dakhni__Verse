@@ -1,8 +1,10 @@
+import { requireRole } from '@/lib/auth/helpers';
 import { getArtistOptions } from '@/lib/queries/releases';
 import { getProjectOptions } from '@/lib/queries/projects';
 import { ReleaseForm } from '@/components/releases/release-form';
 
 export default async function NewReleasePage() {
+  await requireRole(['Manager']);
   const [artists, projects] = await Promise.all([
     getArtistOptions(),
     getProjectOptions(),

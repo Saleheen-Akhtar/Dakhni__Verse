@@ -39,6 +39,8 @@ export interface SessionDeleteDialogProps {
     duration_minutes?: number | null;
     session_type: string;
     notes?: string | null;
+    status?: string;
+    cancellation_reason?: string | null;
     artist?: { stage_name?: string; name?: string } | null;
     project?: { title?: string } | null;
   } | null;
@@ -59,7 +61,7 @@ export function SessionDeleteDialog({
 
   if (!session) return null;
 
-  const isCancelled = session.notes?.includes("[CANCELLED]");
+  const isCancelled = session.status === "Cancelled" || session.notes?.includes("[CANCELLED]");
 
   const handleCancel = async () => {
     setLoading(true);

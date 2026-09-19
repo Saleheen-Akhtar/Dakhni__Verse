@@ -1,4 +1,5 @@
 import { getReleases, getArtistOptions } from '@/lib/queries/releases';
+import { getCurrentUserProfile } from '@/lib/auth/helpers';
 import { PageHeader } from '@/components/ui/page-header';
 import { ReleaseList } from '@/components/releases/release-list';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ export default async function ReleasesPage({
   searchParams?: Promise<{ artist_id?: string; status?: string; search?: string; page?: string }>;
 }) {
   const params = await searchParams;
-  const [releases, artists] = await Promise.all([
+  const [releases, artists, profile] = await Promise.all([
     getReleases({
       artist_id: params?.artist_id,
       status: params?.status,
@@ -20,18 +21,23 @@ export default async function ReleasesPage({
       pageSize: 25,
     }),
     getArtistOptions(),
+    getCurrentUserProfile(),
   ]);
+
+  const isManager = profile?.role === 'Manager';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <PageHeader title="Releases" description="Track music releases" />
-        <Button asChild>
-          <Link href="/releases/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Release
-          </Link>
-        </Button>
+        {isManager && (
+          <Button asChild>
+            <Link href="/releases/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Release
+            </Link>
+          </Button>
+        )}
       </div>
       <ReleaseList 
         releases={releases} 

@@ -15,6 +15,8 @@ export const createSessionSchema = z
     start_time: z.string().min(1, "Start time is required"),
     end_time: z.string().min(1, "End time is required"),
     notes: z.string().max(5000).optional().or(z.literal("")),
+    status: z.enum(["Scheduled", "Completed", "Cancelled"]).optional(),
+    cancellation_reason: z.string().max(1000).optional().nullable(),
   })
   .refine(
     (data) => {

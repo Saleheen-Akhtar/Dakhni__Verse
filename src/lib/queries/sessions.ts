@@ -21,7 +21,7 @@ export async function getSessions(filters?: {
 }) {
   const supabase = await createClient();
   let query = supabase.from('sessions').select(`
-    id, artist_id, project_id, session_type, engineer_id, session_date, start_time, end_time, duration_minutes, notes, created_at,
+    id, artist_id, project_id, session_type, engineer_id, session_date, start_time, end_time, duration_minutes, notes, status, cancellation_reason, cancelled_at, cancelled_by, created_at,
     artist:artists!artist_id(id, stage_name, phone, location),
     project:projects!project_id(id, title),
     engineer:artists!engineer_id(id, stage_name, phone)
@@ -55,7 +55,10 @@ export async function getSessions(filters?: {
 }
 
 export async function createSession(data: any, userId?: string) {
-  const { user, supabase } = await requireUserSession();
+  const { user, profile, supabase } = await requireUserSession();
+  if (profile.role !== 'Manager' && profile.role !== 'Producer') {
+    throw new Error('Unauthorized: Only managers and producers can schedule sessions');
+  }
   const authUser = userId || user.id;
   
   const rawData = { ...data };
@@ -84,7 +87,10 @@ export async function createSession(data: any, userId?: string) {
 }
 
 export async function updateSession(id: string, data: any) {
-  const { supabase } = await requireUserSession();
+  const { user, profile, supabase } = await requireUserSession();
+  if (profile.role !== 'Manager' && profile.role !== 'Producer') {
+    throw new Error('Unauthorized: Only managers and producers can update sessions');
+  }
   
   const rawData = { ...data };
   if (rawData.date && !rawData.session_date) {
@@ -159,7 +165,13 @@ export async function cancelSession(id: string, reason?: string) {
 
   const { error } = await supabase
     .from('sessions')
-    .update({ notes: updatedNotes })
+    .update({ 
+      status: 'Cancelled',
+      cancellation_reason: reason || null,
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: user.id,
+      notes: updatedNotes 
+    })
     .eq('id', id);
 
   if (error) {
@@ -195,7 +207,13 @@ export async function restoreSession(id: string) {
 
   const { error } = await supabase
     .from('sessions')
-    .update({ notes: updatedNotes })
+    .update({ 
+      status: 'Scheduled',
+      cancellation_reason: null,
+      cancelled_at: null,
+      cancelled_by: null,
+      notes: updatedNotes 
+    })
     .eq('id', id);
 
   if (error) {
