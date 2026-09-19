@@ -61,6 +61,7 @@ export function ImageLightbox({ open, src, alt, title, onClose }: ImageLightboxP
         className="relative max-w-2xl max-h-[85vh] flex flex-col items-center justify-center"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt={alt || title || "Profile Photo"}

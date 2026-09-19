@@ -40,7 +40,7 @@ export default async function ArtistsPage({
       {profile?.role === 'Manager' && (
         <>
           <Button asChild variant="outline" className="relative border-neutral-300 hover:bg-neutral-50">
-            <Link href="/artists/review" className="flex items-center gap-2">
+            <Link href="/artists/review" prefetch={false} className="flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4 text-[#D71920]" />
               <span>Review Applications</span>
               <Suspense fallback={null}>
@@ -49,7 +49,7 @@ export default async function ArtistsPage({
             </Link>
           </Button>
           <Button asChild>
-            <Link href="/artists/new">Add Artist</Link>
+            <Link href="/artists/new" prefetch={false}>Add Artist</Link>
           </Button>
         </>
       )}

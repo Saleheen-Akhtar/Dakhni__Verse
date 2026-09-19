@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { signIn } from '@/lib/auth/actions';
 
 export default function LoginPage() {
@@ -26,9 +27,12 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F4F4F4] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex flex-col items-center mb-4">
-          <img
+          <Image
             src="/logo.png"
             alt="Dakhni Verse"
+            width={128}
+            height={128}
+            priority
             className="h-32 w-auto object-contain mb-3 drop-shadow-md"
           />
           <h2 className="text-center text-3xl font-bold font-display tracking-wider text-[#111111]">

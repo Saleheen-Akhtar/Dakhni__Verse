@@ -78,6 +78,8 @@ export function DialogContent({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   const ctx = React.useContext(DialogContext);
+  const open = ctx?.open;
+  const onOpenChange = ctx?.onOpenChange;
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -87,10 +89,10 @@ export function DialogContent({
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        ctx?.onOpenChange(false);
+        onOpenChange?.(false);
       }
     };
-    if (ctx?.open) {
+    if (open) {
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
     } else {
@@ -100,9 +102,9 @@ export function DialogContent({
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [ctx?.open, ctx?.onOpenChange]);
+  }, [open, onOpenChange]);
 
-  if (!mounted || !ctx?.open) return null;
+  if (!mounted || !open) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

@@ -157,6 +157,7 @@ export function ImageCropDialog({ open, imageUrl, onCrop, onClose }: ImageCropDi
           >
             {/* The Scaled & Positioned Image */}
             {imageLoaded && (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={imageUrl}
                 alt="Crop preview"

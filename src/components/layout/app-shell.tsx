@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -101,7 +102,14 @@ export function AppShell({ user, children }: AppShellProps) {
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#111111] text-white flex items-center justify-between px-4 z-20 border-b border-[#222222]">
         <div className="flex items-center gap-2.5">
-          <img src="/logo-square.png" alt="Dakhni Verse" className="w-8 h-8 rounded-lg object-contain bg-[#1a1a1a] border border-neutral-800 shadow-sm" />
+          <Image
+            src="/logo-square.png"
+            alt="Dakhni Verse"
+            width={32}
+            height={32}
+            priority
+            className="w-8 h-8 rounded-lg object-contain bg-[#1a1a1a] border border-neutral-800 shadow-sm"
+          />
           <span className="font-display font-bold text-lg tracking-wider">DAKHNI VERSE</span>
         </div>
         <button onClick={toggleMenu} className="p-2 -mr-2 text-gray-400 hover:text-white">
@@ -124,7 +132,14 @@ export function AppShell({ user, children }: AppShellProps) {
       `}>
         {/* Logo */}
         <div className="h-16 flex items-center gap-3 px-6 border-b border-[#222222] shrink-0 mt-4 md:mt-0">
-          <img src="/logo-square.png" alt="Dakhni Verse" className="w-9 h-9 rounded-lg object-contain bg-[#1a1a1a] border border-neutral-800 shadow-sm" />
+          <Image
+            src="/logo-square.png"
+            alt="Dakhni Verse"
+            width={36}
+            height={36}
+            priority
+            className="w-9 h-9 rounded-lg object-contain bg-[#1a1a1a] border border-neutral-800 shadow-sm"
+          />
           <div className="flex flex-col">
             <span className="font-display font-bold text-base tracking-wider leading-tight">DAKHNI VERSE</span>
             <span className="text-[10px] text-gray-400 tracking-widest font-mono uppercase">Studio &amp; Collective</span>

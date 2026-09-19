@@ -6,7 +6,7 @@ export interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
   src?: string | null;
   alt?: string;
   fallback?: string;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
 
 const sizeClasses = {
@@ -14,6 +14,7 @@ const sizeClasses = {
   md: "h-10 w-10 text-sm",
   lg: "h-12 w-12 text-base",
   xl: "h-16 w-16 text-lg",
+  "2xl": "h-24 w-24 text-2xl",
 };
 
 const sizePixels = {
@@ -21,6 +22,7 @@ const sizePixels = {
   md: 40,
   lg: 48,
   xl: 64,
+  "2xl": 96,
 };
 
 function getInitials(name: string): string {
@@ -50,6 +52,7 @@ function Avatar({ src, alt, fallback, size = "md", className, ...props }: Avatar
         {...props}
       >
         {isDataUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={src}
             alt={alt || fallback || "Avatar"}

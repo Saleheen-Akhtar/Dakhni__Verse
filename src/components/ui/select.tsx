@@ -191,12 +191,13 @@ const SelectItem = React.forwardRef<HTMLDivElement, SelectItemProps>(
   ({ value, className, children, ...props }, ref) => {
     const ctx = React.useContext(SelectContext);
     const isSelected = ctx?.value === value;
+    const setSelectedLabel = ctx?.setSelectedLabel;
 
     React.useEffect(() => {
-      if (isSelected && typeof children === "string") {
-        ctx.setSelectedLabel(children);
+      if (isSelected && typeof children === "string" && setSelectedLabel) {
+        setSelectedLabel(children);
       }
-    }, [isSelected, children]);
+    }, [isSelected, children, setSelectedLabel]);
 
     return (
       <div

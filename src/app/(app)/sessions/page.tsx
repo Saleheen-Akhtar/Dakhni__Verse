@@ -34,7 +34,7 @@ export default async function SessionsPage({
         <PageHeader title="Sessions" description="Studio session tracking" />
         {canAddSession && (
           <Button asChild>
-            <Link href="/sessions/new">
+            <Link href="/sessions/new" prefetch={false}>
               <Plus className="mr-2 h-4 w-4" />
               Add Session
             </Link>

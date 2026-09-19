@@ -169,7 +169,7 @@ export function ArtistProfile({
             <Avatar
               src={artist.profile_image_url}
               fallback={artist.stage_name?.substring(0, 2).toUpperCase()}
-              size="xl"
+              size="2xl"
               className="w-24 h-24 transition-all duration-200 group-hover:scale-105 ring-2 ring-transparent group-hover:ring-[#D71920]"
             />
             {artist.profile_image_url && (

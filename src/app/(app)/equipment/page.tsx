@@ -30,7 +30,7 @@ export default async function EquipmentPage({
         <PageHeader title="Equipment" description="Studio inventory" />
         {isManager && (
           <Button asChild>
-            <Link href="/equipment/new">
+            <Link href="/equipment/new" prefetch={false}>
               <Plus className="mr-2 h-4 w-4" />
               Add Equipment
             </Link>

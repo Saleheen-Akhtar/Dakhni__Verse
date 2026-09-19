@@ -32,7 +32,7 @@ export default async function ReleasesPage({
         <PageHeader title="Releases" description="Track music releases" />
         {isManager && (
           <Button asChild>
-            <Link href="/releases/new">
+            <Link href="/releases/new" prefetch={false}>
               <Plus className="mr-2 h-4 w-4" />
               Add Release
             </Link>
