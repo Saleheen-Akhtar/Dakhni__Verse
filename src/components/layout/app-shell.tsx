@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -19,12 +19,14 @@ import {
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { triggerPwaInstall } from '@/components/pwa/pwa-install-prompt';
+import { saveUserOfflineProfile, clearOfflineDeviceCache } from '@/lib/storage/offline-cache';
 
 interface User {
   id: string;
   name: string;
   email: string;
   role: string;
+  artist_id?: string | null;
 }
 
 interface AppShellProps {
@@ -53,6 +55,12 @@ const navItems: NavItem[] = [
 export function AppShell({ user, children }: AppShellProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      saveUserOfflineProfile(user);
+    }
+  }, [user]);
 
   const toggleMenu = () => setMobileMenuOpen(!mobileMenuOpen);
   const closeMenu = () => setMobileMenuOpen(false);
@@ -149,7 +157,12 @@ export function AppShell({ user, children }: AppShellProps) {
             <Smartphone className="w-4 h-4 text-[#D71920]" />
             <span className="font-medium">Install Mobile App</span>
           </button>
-          <form action={signOut}>
+          <form 
+            action={signOut}
+            onSubmit={() => {
+              clearOfflineDeviceCache();
+            }}
+          >
             <button 
               type="submit"
               className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors w-full px-1"

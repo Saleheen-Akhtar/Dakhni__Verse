@@ -1,5 +1,8 @@
 // Dakhni Verse Service Worker (PWA)
-const CACHE_NAME = 'dakhni-verse-v4';
+const CACHE_NAME = 'dakhni-verse-v5';
+const MEDIA_CACHE_NAME = 'dakhni-verse-media-v1';
+const MAX_MEDIA_ITEMS = 60; // Limit to 60 images to prevent device storage bloat
+
 const STATIC_ASSETS = [
   '/manifest.webmanifest',
   '/manifest.json',
@@ -15,6 +18,19 @@ const STATIC_ASSETS = [
   '/icons/icon.svg',
 ];
 
+// Trims cache entries if count exceeds maxItems (FIFO)
+async function trimCache(cacheName, maxItems) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length > maxItems) {
+      for (let i = 0; i < keys.length - maxItems; i++) {
+        await cache.delete(keys[i]);
+      }
+    }
+  } catch (e) {}
+}
+
 // Install Event
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -27,13 +43,13 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate Event - purge old caches and claim clients immediately
+// Activate Event - purge old code caches, preserve media cache, claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key !== CACHE_NAME && key !== MEDIA_CACHE_NAME) {
             return caches.delete(key);
           }
         })
@@ -53,6 +69,33 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // 1. Device Caching for Artist & Media Images (Supabase Storage CDN & Next.js Image Optimizer)
+  const isSupabaseMedia = url.hostname.includes('supabase.co') && url.pathname.includes('/storage/v1/object/public/');
+  const isNextImage = url.pathname.startsWith('/_next/image');
+
+  if (request.method === 'GET' && (isSupabaseMedia || isNextImage)) {
+    event.respondWith(
+      caches.open(MEDIA_CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse && networkResponse.status === 200) {
+            cache.put(request, networkResponse.clone());
+            trimCache(MEDIA_CACHE_NAME, MAX_MEDIA_ITEMS);
+          }
+          return networkResponse;
+        } catch (err) {
+          return cachedResponse || Response.error();
+        }
+      })
+    );
+    return;
+  }
 
   // Skip non-GET requests, non-http, Supabase API/Auth, Next.js internal RSC requests, and Next static chunks
   if (
