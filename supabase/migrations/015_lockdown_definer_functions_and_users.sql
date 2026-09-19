@@ -703,16 +703,3 @@ $$;
 REVOKE ALL ON FUNCTION public.approve_and_create_artist_account(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.approve_and_create_artist_account(UUID, TEXT) TO authenticated, service_role;
 
--- ---------------------------------------------------------------------------
--- 5. Optional: artists directory ordering index (run EXPLAIN ANALYZE first)
--- ---------------------------------------------------------------------------
--- CREATE INDEX IF NOT EXISTS idx_artists_created_at_desc ON public.artists (created_at DESC);
-
--- ---------------------------------------------------------------------------
--- 6. VERIFY (all should be false / errors):
--- ---------------------------------------------------------------------------
--- select p.proname, has_function_privilege('anon', p.oid, 'execute') as anon_exec
--- from pg_proc p join pg_namespace n on n.oid=p.pronamespace
--- where n.nspname='public' and p.prosecdef order by 1;
--- Expected anon_exec = true ONLY for: submit_public_artist, check_rate_limit_rpc,
--- get_active_artist_options_rpc, get_user_role, get_user_artist_id.
