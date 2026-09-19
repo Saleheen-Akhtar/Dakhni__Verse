@@ -31,7 +31,7 @@ export default async function ProjectsPage({
         <PageHeader title="Projects" description="Track music production" />
         {isManager && (
           <Button asChild>
-            <Link href="/projects/new" prefetch={false}>
+            <Link href="/projects/new">
               <Plus className="mr-2 h-4 w-4" />
               Add Project
             </Link>

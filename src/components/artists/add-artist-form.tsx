@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/client';
 import { createArtist } from '@/lib/queries/artists';
 import { createArtistSchema, artistMusicProfileSchema, artistSocialLinkSchema } from '@/lib/validation/artist';
 import { ARTIST_STATUSES } from '@/lib/utils/constants';
+import { uploadProfileImage } from '@/lib/storage/upload';
 import { UploadCloud } from 'lucide-react';
 
 const STEPS = ['Basic Info', 'Music Profile', 'Career', 'Social Links', 'Dakhni Verse', 'Review', 'Save'];
@@ -131,6 +132,9 @@ export function AddArtistForm() {
     setIsSubmitting(true);
     try {
       const dataToSubmit = { ...formData };
+      if (dataToSubmit.profile_image_url) {
+        dataToSubmit.profile_image_url = await uploadProfileImage(dataToSubmit.profile_image_url, dataToSubmit.stage_name || 'artist');
+      }
       const response = await createArtist(dataToSubmit);
       toast({ title: 'Success', description: 'Artist created successfully', variant: 'success' });
       router.push(`/artists/${response?.id}`);

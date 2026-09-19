@@ -23,7 +23,7 @@ export default async function EquipmentPage({
       <div className="flex items-center justify-between">
         <PageHeader title="Equipment" description="Studio inventory" />
         <Button asChild>
-          <Link href="/equipment/new" prefetch={false}>
+          <Link href="/equipment/new">
             <Plus className="mr-2 h-4 w-4" />
             Add Equipment
           </Link>

@@ -29,7 +29,7 @@ export default async function SessionsPage({
       <div className="flex items-center justify-between">
         <PageHeader title="Sessions" description="Studio session tracking" />
         <Button asChild>
-          <Link href="/sessions/new" prefetch={false}>
+          <Link href="/sessions/new">
             <Plus className="mr-2 h-4 w-4" />
             Add Session
           </Link>

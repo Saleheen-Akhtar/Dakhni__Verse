@@ -11,6 +11,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { ImageCropDialog } from '@/components/ui/image-crop-dialog';
 import { useToast } from '@/components/ui/toast';
 import { submitArtistSelfService } from '@/lib/queries/artists';
+import { uploadProfileImage } from '@/lib/storage/upload';
 import { 
   UploadCloud, 
   CheckCircle2, 
@@ -210,8 +211,14 @@ export function PublicArtistForm() {
         ? formData.instruments.split(',').map((i: string) => i.trim()).filter(Boolean)
         : formData.instruments;
 
+      let finalImageUrl = formData.profile_image_url || null;
+      if (finalImageUrl) {
+        finalImageUrl = await uploadProfileImage(finalImageUrl, formData.stage_name || 'applicant');
+      }
+
       const payload = {
         ...formData,
+        profile_image_url: finalImageUrl,
         subgenres,
         instruments,
       };

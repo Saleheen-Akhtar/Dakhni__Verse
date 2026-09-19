@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/toast';
 import { createClient } from '@/lib/supabase/client';
 import { saveArtistFull } from '@/lib/queries/artists';
 import { ARTIST_STATUSES } from '@/lib/utils/constants';
+import { uploadProfileImage } from '@/lib/storage/upload';
 import { UploadCloud } from 'lucide-react';
 
 interface EditArtistFormProps {
@@ -154,10 +155,15 @@ export function EditArtistForm({ artist }: EditArtistFormProps) {
     setIsSubmitting(true);
 
     try {
+      let finalImageUrl = formData.profile_image_url || null;
+      if (finalImageUrl) {
+        finalImageUrl = await uploadProfileImage(finalImageUrl, formData.stage_name || 'artist');
+      }
+
       const artistData = {
         stage_name: formData.stage_name,
         legal_name: formData.legal_name || null,
-        profile_image_url: formData.profile_image_url || null,
+        profile_image_url: finalImageUrl,
         location: formData.location || null,
         phone: formData.phone || null,
         email: formData.email || null,
