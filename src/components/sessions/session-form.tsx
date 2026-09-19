@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { toast } from '@/components/ui/use-toast';
-import { formatDuration } from '@/lib/utils/format';
+import { formatDuration, toLocalDateString } from '@/lib/utils/format';
 import { checkSessionConflicts, SessionConflict } from '@/lib/queries/session-conflicts';
 import { AlertTriangle, Clock } from 'lucide-react';
 
@@ -19,7 +19,7 @@ export function SessionForm({ artists, projects }: { artists: any[]; projects: a
   const router = useRouter();
   const form = useForm({
     resolver: zodResolver(sessionSchema),
-    defaultValues: { session_date: new Date().toISOString().split('T')[0], session_type: 'Recording', start_time: '', end_time: '' }
+    defaultValues: { session_date: toLocalDateString(new Date()), session_type: 'Recording', start_time: '', end_time: '' }
   });
 
   const sessionDate = useWatch({ control: form.control, name: 'session_date' });

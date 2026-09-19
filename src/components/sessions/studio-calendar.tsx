@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatDuration } from "@/lib/utils/format";
+import { formatDate, formatDuration, toLocalDateString } from "@/lib/utils/format";
 import { SessionReminderDialog } from "./session-reminder-dialog";
 import { SessionDeleteDialog } from "./session-delete-dialog";
 
@@ -191,13 +191,13 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
       isToday: boolean;
     }> = [];
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = toLocalDateString(new Date());
 
     // Leading days from prev month
     const prevMonthLastDay = new Date(year, month, 0).getDate();
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
       const d = new Date(year, month - 1, prevMonthLastDay - i);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = toLocalDateString(d);
       days.push({
         date: d,
         dateStr,
@@ -209,7 +209,7 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
     // Days of current month
     for (let i = 1; i <= totalDays; i++) {
       const d = new Date(year, month, i);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = toLocalDateString(d);
       days.push({
         date: d,
         dateStr,
@@ -222,7 +222,7 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
     const remaining = (7 - (days.length % 7)) % 7;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(year, month + 1, i);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = toLocalDateString(d);
       days.push({
         date: d,
         dateStr,
@@ -248,12 +248,12 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
       dayName: string;
     }> = [];
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = toLocalDateString(new Date());
 
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = toLocalDateString(d);
       weekDays.push({
         date: d,
         dateStr,

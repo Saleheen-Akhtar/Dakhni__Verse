@@ -6,7 +6,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { formatDate, formatDuration } from '@/lib/utils/format';
+import { formatDate, formatDuration, toLocalDateString } from '@/lib/utils/format';
 import { StudioCalendar } from '@/components/sessions/studio-calendar';
 import { SessionReminderDialog } from '@/components/sessions/session-reminder-dialog';
 import { SessionDeleteDialog } from '@/components/sessions/session-delete-dialog';
@@ -37,7 +37,7 @@ interface SessionListProps {
 
 function computePresetDates(preset: string): { from: string; to: string } {
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = toLocalDateString(now);
 
   if (preset === 'today') {
     return { from: todayStr, to: todayStr };
@@ -50,16 +50,16 @@ function computePresetDates(preset: string): { from: string; to: string } {
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     return {
-      from: monday.toISOString().split('T')[0],
-      to: sunday.toISOString().split('T')[0],
+      from: toLocalDateString(monday),
+      to: toLocalDateString(sunday),
     };
   }
   if (preset === 'this_month') {
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     return {
-      from: firstDay.toISOString().split('T')[0],
-      to: lastDay.toISOString().split('T')[0],
+      from: toLocalDateString(firstDay),
+      to: toLocalDateString(lastDay),
     };
   }
   if (preset === 'upcoming') {
@@ -71,19 +71,20 @@ function computePresetDates(preset: string): { from: string; to: string } {
 function detectDatePreset(from: string, to: string): string {
   if (!from && !to) return 'all';
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = toLocalDateString(now);
   if (from === todayStr && to === todayStr) return 'today';
 
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const firstDay = toLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1));
+  const lastDay = toLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0));
   if (from === firstDay && to === lastDay) return 'this_month';
 
   const curr = new Date(now);
   const day = curr.getDay();
   const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(curr.setDate(diff)).toISOString().split('T')[0];
-  const sunday = new Date(new Date(monday).setDate(new Date(monday).getDate() + 6)).toISOString().split('T')[0];
-  if (from === monday && to === sunday) return 'this_week';
+  const monday = new Date(curr.setDate(diff));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  if (from === toLocalDateString(monday) && to === toLocalDateString(sunday)) return 'this_week';
 
   if (from === todayStr && !to) return 'upcoming';
 
