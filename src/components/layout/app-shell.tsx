@@ -90,9 +90,9 @@ export function AppShell({ user, children }: AppShellProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-[#F4F4F4]">
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#111111] text-white flex items-center justify-between px-4 z-20">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-6 bg-[#D71920]"></div>
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#111111] text-white flex items-center justify-between px-4 z-20 border-b border-[#222222]">
+        <div className="flex items-center gap-2.5">
+          <img src="/logo-square.png" alt="Dakhni Verse" className="w-8 h-8 rounded-lg object-contain bg-[#1a1a1a] border border-neutral-800 shadow-sm" />
           <span className="font-display font-bold text-lg tracking-wider">DAKHNI VERSE</span>
         </div>
         <button onClick={toggleMenu} className="p-2 -mr-2 text-gray-400 hover:text-white">
@@ -114,10 +114,11 @@ export function AppShell({ user, children }: AppShellProps) {
         ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Logo */}
-        <div className="h-16 flex items-center px-6 border-b border-[#222222] shrink-0 mt-4 md:mt-0">
+        <div className="h-16 flex items-center gap-3 px-6 border-b border-[#222222] shrink-0 mt-4 md:mt-0">
+          <img src="/logo-square.png" alt="Dakhni Verse" className="w-9 h-9 rounded-lg object-contain bg-[#1a1a1a] border border-neutral-800 shadow-sm" />
           <div className="flex flex-col">
-            <div className="w-6 h-1 bg-[#D71920] mb-1 rounded-sm"></div>
-            <span className="font-display font-bold text-lg tracking-wider">DAKHNI VERSE</span>
+            <span className="font-display font-bold text-base tracking-wider leading-tight">DAKHNI VERSE</span>
+            <span className="text-[10px] text-gray-400 tracking-widest font-mono uppercase">Studio &amp; Collective</span>
           </div>
         </div>
 

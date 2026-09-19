@@ -14,7 +14,7 @@ export default function JoinPage() {
       <header className="border-b border-neutral-200/80 bg-white/95 backdrop-blur sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-3 h-3 rounded-full bg-[#D71920]" />
+            <img src="/logo-square.png" alt="Dakhni Verse" className="w-8 h-8 rounded-lg object-contain bg-[#111111] border border-neutral-800 shadow-xs" />
             <span className="font-bold text-lg tracking-wider font-display text-neutral-950">
               DAKHNI VERSE
             </span>

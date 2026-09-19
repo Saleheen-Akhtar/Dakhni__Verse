@@ -13,10 +13,12 @@ import {
   AlertTriangle,
   X,
   Plus,
+  MessageCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatDuration } from "@/lib/utils/format";
+import { SessionReminderDialog } from "./session-reminder-dialog";
 
 export interface SessionItem {
   id: string;
@@ -26,9 +28,9 @@ export interface SessionItem {
   duration_minutes?: number | null;
   session_type: string;
   notes?: string | null;
-  artist?: { id: string; stage_name?: string; name?: string } | null;
+  artist?: { id: string; stage_name?: string; name?: string; phone?: string | null; location?: string | null } | null;
   project?: { id: string; title: string } | null;
-  engineer?: { id: string; stage_name?: string; name?: string } | null;
+  engineer?: { id: string; stage_name?: string; name?: string; phone?: string | null } | null;
 }
 
 interface StudioCalendarProps {
@@ -98,6 +100,7 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [selectedSession, setSelectedSession] = useState<SessionItem | null>(null);
+  const [reminderSession, setReminderSession] = useState<SessionItem | null>(null);
 
   // Group sessions by "YYYY-MM-DD"
   const sessionsByDate = useMemo(() => {
@@ -635,26 +638,43 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
               )}
             </div>
 
-            <div className="pt-2 flex justify-end gap-2">
+            <div className="pt-3 border-t border-border flex flex-wrap items-center justify-between gap-2">
               <Button
-                variant="outline"
                 size="sm"
-                onClick={() => setSelectedSession(null)}
+                onClick={() => setReminderSession(selectedSession)}
+                className="text-xs bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-sm font-semibold"
               >
-                Close
+                <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+                WhatsApp Reminder
               </Button>
-              {selectedSession.project?.id && (
-                <Button asChild size="sm">
-                  <Link href={`/projects/${selectedSession.project.id}`}>
-                    <Music className="h-3.5 w-3.5 mr-1" />
-                    View Project
-                  </Link>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedSession(null)}
+                >
+                  Close
                 </Button>
-              )}
+                {selectedSession.project?.id && (
+                  <Button asChild size="sm">
+                    <Link href={`/projects/${selectedSession.project.id}`}>
+                      <Music className="h-3.5 w-3.5 mr-1" />
+                      View Project
+                    </Link>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* WhatsApp Session Reminder Modal */}
+      <SessionReminderDialog
+        session={reminderSession}
+        onClose={() => setReminderSession(null)}
+      />
     </div>
   );
 }

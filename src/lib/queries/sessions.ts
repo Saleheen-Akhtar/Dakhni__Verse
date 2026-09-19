@@ -21,9 +21,9 @@ export async function getSessions(filters?: {
   const supabase = await createClient();
   let query = supabase.from('sessions').select(`
     id, artist_id, project_id, session_type, engineer_id, session_date, start_time, end_time, duration_minutes, notes, created_at,
-    artist:artists!artist_id(id, stage_name),
+    artist:artists!artist_id(id, stage_name, phone, location),
     project:projects!project_id(id, title),
-    engineer:artists!engineer_id(id, stage_name)
+    engineer:artists!engineer_id(id, stage_name, phone)
   `, { count: 'exact' });
 
   if (filters?.artist_id) query = query.eq('artist_id', filters.artist_id);

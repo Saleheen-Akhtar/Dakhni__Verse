@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatDate, formatDuration } from '@/lib/utils/format';
 import { StudioCalendar } from '@/components/sessions/studio-calendar';
-import { CalendarDays, LayoutList } from 'lucide-react';
+import { SessionReminderDialog } from '@/components/sessions/session-reminder-dialog';
+import { CalendarDays, LayoutList, MessageCircle } from 'lucide-react';
 
 interface SessionListProps {
   sessions: any[];
@@ -37,6 +38,7 @@ export function SessionList({
   const [dateFrom, setDateFrom] = useState(initialFrom);
   const [dateTo, setDateTo] = useState(initialTo);
   const [view, setView] = useState<'calendar' | 'table'>('calendar');
+  const [reminderSession, setReminderSession] = useState<any | null>(null);
 
   const updateFilters = (newArtist: string, newType: string, newFrom: string, newTo: string, newPage: number = 1) => {
     const params = new URLSearchParams();
@@ -95,6 +97,27 @@ export function SessionList({
       header: 'Engineer', 
       accessorKey: 'engineer.stage_name', 
       cell: ({ row }: any) => row.original.engineer?.stage_name || row.original.engineer?.name || '-' 
+    },
+    {
+      header: 'Reminder',
+      id: 'actions',
+      cell: ({ row }: any) => {
+        const session = row.original;
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setReminderSession(session);
+            }}
+            title="Send WhatsApp Session Reminder"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 border border-emerald-200 transition-colors shadow-2xs"
+          >
+            <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+            <span>WhatsApp</span>
+          </button>
+        );
+      },
     },
   ];
 
@@ -183,6 +206,12 @@ export function SessionList({
           }}
         />
       )}
+
+      {/* WhatsApp Session Reminder Modal */}
+      <SessionReminderDialog
+        session={reminderSession}
+        onClose={() => setReminderSession(null)}
+      />
     </div>
   );
 }
