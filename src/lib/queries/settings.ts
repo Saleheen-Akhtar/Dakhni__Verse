@@ -38,12 +38,8 @@ export async function getProducers() {
     if (mapped.length > 0) return mapped;
   }
 
-  // 3. Fallback: all active artists so target configuration remains functional
-  const artists = await getArtistOptions();
-  return (artists || []).map((a: any) => ({
-    id: a.id,
-    name: a.stage_name,
-  }));
+  // 3. If no producers are configured, return empty array to prevent assigning targets to non-producers
+  return [];
 }
 
 export async function getTargets() {

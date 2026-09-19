@@ -256,7 +256,7 @@ async function AsyncDashboardKPIsSection({
           label="Active Projects"
           value={kpis.activeProjects}
           icon={<Music className="h-4 w-4" />}
-          href="/projects?status=active"
+          href="/projects"
         />
         <KPICard
           label="In Production"

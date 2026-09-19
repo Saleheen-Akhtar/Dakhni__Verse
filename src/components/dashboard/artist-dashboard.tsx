@@ -268,7 +268,7 @@ export function ArtistDashboard({
                           {release.title}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {release.release_type} • {release.release_date ? formatDate(release.release_date) : "TBD"}
+                          {(release.distributor ? `${release.distributor} • ` : '') + (release.release_date ? formatDate(release.release_date) : "TBD")}
                         </p>
                       </div>
                       <Badge variant="success">

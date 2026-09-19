@@ -6,7 +6,7 @@ import { CurrentUser } from "@/types";
 export interface ArtistSummary {
   id: string;
   stage_name: string;
-  legal_name: string | null;
+  legal_name?: string | null;
   profile_image_url: string | null;
   dakhni_verse_role: string | null;
 }
@@ -34,10 +34,16 @@ export interface ArtistProjectItem {
 export interface ArtistReleaseItem {
   id: string;
   title: string;
-  release_type: string;
-  release_date: string | null;
   status: string;
-  streaming_links: any;
+  release_date: string | null;
+  distributor?: string | null;
+  isrc?: string | null;
+  spotify_url?: string | null;
+  apple_music_url?: string | null;
+  youtube_url?: string | null;
+  other_platform_url?: string | null;
+  release_type?: string;
+  streaming_links?: any;
 }
 
 /**
@@ -46,35 +52,23 @@ export interface ArtistReleaseItem {
 export async function resolveArtistForUser(profile: CurrentUser): Promise<ArtistSummary | null> {
   const supabase = await createClient();
 
-  // 1. Check direct artist_id link
+  // 1. Check direct artist_id link (Single Source of Truth)
   if (profile.artist_id) {
     const { data } = await supabase
       .from("artists")
-      .select("id, stage_name, legal_name, profile_image_url, dakhni_verse_role")
+      .select("id, stage_name, profile_image_url, dakhni_verse_role")
       .eq("id", profile.artist_id)
       .single();
 
     if (data) return data;
   }
 
-  // 2. Fallback: match by user email
+  // 2. Safe Fallback: exact match by user email
   if (profile.email) {
     const { data } = await supabase
       .from("artists")
-      .select("id, stage_name, legal_name, profile_image_url, dakhni_verse_role")
+      .select("id, stage_name, profile_image_url, dakhni_verse_role")
       .ilike("email", profile.email.trim())
-      .limit(1)
-      .maybeSingle();
-
-    if (data) return data;
-  }
-
-  // 3. Fallback: match by name
-  if (profile.name) {
-    const { data } = await supabase
-      .from("artists")
-      .select("id, stage_name, legal_name, profile_image_url, dakhni_verse_role")
-      .ilike("stage_name", profile.name.trim())
       .limit(1)
       .maybeSingle();
 
@@ -100,6 +94,7 @@ export async function getArtistUpcomingSessions(artistId: string): Promise<Upcom
     `)
     .eq("artist_id", artistId)
     .gte("session_date", today)
+    .not("status", "in", '("Cancelled","Completed")')
     .order("session_date", { ascending: true })
     .order("start_time", { ascending: true })
     .limit(5);
@@ -145,7 +140,7 @@ export async function getArtistPersonalReleases(artistId: string, limit = 4): Pr
 
   const { data, error } = await supabase
     .from("releases")
-    .select("id, title, release_type, release_date, status, streaming_links")
+    .select("id, title, status, release_date, distributor, isrc, spotify_url, apple_music_url, youtube_url, other_platform_url")
     .eq("artist_id", artistId)
     .order("release_date", { ascending: false })
     .limit(limit);

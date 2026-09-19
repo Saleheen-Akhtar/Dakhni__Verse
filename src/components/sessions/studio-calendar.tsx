@@ -76,13 +76,6 @@ export const SESSION_TYPE_COLORS: Record<
     dot: "bg-teal-600",
     label: "Editing",
   },
-  Writing: {
-    bg: "bg-purple-50 hover:bg-purple-100",
-    text: "text-purple-800",
-    border: "border-purple-200",
-    dot: "bg-purple-600",
-    label: "Writing",
-  },
   Production: {
     bg: "bg-indigo-50 hover:bg-indigo-100",
     text: "text-indigo-800",

@@ -59,7 +59,7 @@ export async function generateArtistLogin({
   role?: 'Artist' | 'Producer';
 }) {
   // 1. Verify caller has Manager role
-  await requireRole(['Manager']);
+  const managerProfile = await requireRole(['Manager']);
 
   const trimmedEmail = (email || '').trim().toLowerCase();
   const trimmedPassword = (password || '').trim();
@@ -73,6 +73,22 @@ export async function generateArtistLogin({
   }
 
   const managerClient = await createServerClient();
+
+  // Check if an existing account is already registered with this email
+  const { data: existingUser } = await managerClient
+    .from('users')
+    .select('id, email, role, artist_id')
+    .eq('email', trimmedEmail)
+    .maybeSingle();
+
+  if (existingUser) {
+    if (existingUser.role === 'Manager' || existingUser.role === 'Producer') {
+      throw new Error(`Cannot assign login: An administrative account (${existingUser.role}) is already registered with this email address.`);
+    }
+    if (existingUser.artist_id && existingUser.artist_id !== artistId) {
+      throw new Error('Security alert: This email address is already linked to another artist.');
+    }
+  }
 
   // 2. Fetch the artist details
   const { data: artist, error: artistErr } = await managerClient
@@ -189,13 +205,14 @@ export async function generateArtistLogin({
     })
     .eq('id', artistId);
 
-  // 6. Log manager action in activity logs
+  // 6. Log manager action in activity logs with verified actor attribution
   try {
     await managerClient.from('activity_logs').insert([{
+      user_id: managerProfile.id,
       action: 'Artist Login Created',
       entity_type: 'Artist',
       entity_id: artistId,
-      description: `Manager generated artist portal login access for "${artist.stage_name}" (${trimmedEmail})`,
+      description: `Manager ${managerProfile.name || ''} generated artist portal login access for "${artist.stage_name}" (${trimmedEmail})`.trim(),
     }]);
   } catch {}
 

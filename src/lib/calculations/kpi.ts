@@ -84,7 +84,8 @@ export async function getSessionCount(dateRange?: DateRange): Promise<number> {
   const supabase = await createClient();
   let query = supabase
     .from("sessions")
-    .select("*", { count: "exact", head: true });
+    .select("*", { count: "exact", head: true })
+    .not("status", "eq", "Cancelled");
 
   if (dateRange) {
     query = query
