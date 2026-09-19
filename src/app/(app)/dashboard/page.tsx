@@ -15,11 +15,14 @@ import { ExpenseBreakdownChartLazy } from "@/components/dashboard/expense-breakd
 import { ProductionSummary } from "@/components/dashboard/production-summary";
 import { RecentActivityFeed } from "@/components/dashboard/recent-activity";
 import { ArtistDashboard } from "@/components/dashboard/artist-dashboard";
+import { ProducerDashboard } from "@/components/dashboard/producer-dashboard";
 import {
   resolveArtistForUser,
   getArtistUpcomingSessions,
   getArtistPersonalProjects,
   getArtistPersonalReleases,
+  getProducerUpcomingSessions,
+  getProducerAssignedProjects,
 } from "@/lib/queries/artist-portal";
 import { getArtistKPIs } from "@/lib/calculations/artist-kpi";
 import {
@@ -87,6 +90,11 @@ export default async function DashboardPage({
   // If user is an Artist, render the dedicated Artist Portal Dashboard
   if (userRole === "Artist") {
     return <AsyncArtistDashboardSection profile={profile} />;
+  }
+
+  // If user is a Producer, render the dedicated Producer Portal Dashboard
+  if (userRole === "Producer") {
+    return <AsyncProducerDashboardSection profile={profile} />;
   }
 
   return (
@@ -357,3 +365,27 @@ async function AsyncArtistDashboardSection({ profile }: { profile: any }) {
     />
   );
 }
+
+async function AsyncProducerDashboardSection({ profile }: { profile: any }) {
+  const artist = profile ? await resolveArtistForUser(profile) : null;
+  const artistId = artist?.id || profile?.artist_id;
+
+  const [workload, upcomingSessions, projects, recentActivities] = await Promise.all([
+    getProductionWorkload(artistId),
+    getProducerUpcomingSessions(artistId, 5),
+    getProducerAssignedProjects(artistId, 6),
+    getRecentActivity(15),
+  ]);
+
+  return (
+    <ProducerDashboard
+      userName={profile?.name || "Producer"}
+      artist={artist}
+      workload={workload}
+      upcomingSessions={upcomingSessions}
+      projects={projects}
+      recentActivities={recentActivities}
+    />
+  );
+}
+

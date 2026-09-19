@@ -157,3 +157,65 @@ export async function getArtistPersonalReleases(artistId: string, limit = 4): Pr
 
   return (data || []) as unknown as ArtistReleaseItem[];
 }
+
+/**
+ * Fetches upcoming sessions for a producer (where they are the engineer or artist).
+ */
+export async function getProducerUpcomingSessions(artistId?: string | null, limit = 5): Promise<UpcomingSession[]> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().split("T")[0];
+
+  let query = supabase
+    .from("sessions")
+    .select(`
+      id, session_date, start_time, end_time, session_type, notes,
+      project:projects!project_id(id, title),
+      engineer:artists!engineer_id(id, stage_name)
+    `)
+    .gte("session_date", today)
+    .order("session_date", { ascending: true })
+    .order("start_time", { ascending: true })
+    .limit(limit);
+
+  if (artistId) {
+    query = query.or(`engineer_id.eq.${artistId},artist_id.eq.${artistId}`);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("Error fetching upcoming sessions for producer:", error);
+    return [];
+  }
+
+  return (data || []) as unknown as UpcomingSession[];
+}
+
+/**
+ * Fetches projects assigned to a producer (producer, mix engineer, or mastering engineer).
+ */
+export async function getProducerAssignedProjects(artistId?: string | null, limit = 6): Promise<ArtistProjectItem[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("projects")
+    .select(`
+      id, title, status, target_release_date, created_at,
+      producer:artists!producer_id(id, stage_name)
+    `)
+    .not("status", "eq", "Cancelled")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (artistId) {
+    query = query.or(`producer_id.eq.${artistId},mix_engineer_id.eq.${artistId},mastering_engineer_id.eq.${artistId}`);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("Error fetching producer assigned projects:", error);
+    return [];
+  }
+
+  return (data || []) as unknown as ArtistProjectItem[];
+}
+

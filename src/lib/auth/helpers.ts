@@ -47,12 +47,53 @@ export async function requireAuth() {
 }
 
 import { measureQuery } from '@/lib/telemetry/perf'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { unstable_cache } from 'next/cache'
+
+function getStatelessSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !anonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return createSupabaseClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+const getCachedUserProfile = (userId: string) =>
+  unstable_cache(
+    async (id: string): Promise<CurrentUser | null> => {
+      try {
+        const client = getStatelessSupabase()
+        const { data, error } = await client.rpc('get_user_profile_rpc', { p_user_id: id })
+        if (error || !data) return null
+        return data as CurrentUser
+      } catch {
+        return null
+      }
+    },
+    ['user-profile', userId],
+    {
+      revalidate: 300, // 5 minutes
+      tags: [`user-profile-${userId}`, 'user-profiles'],
+    }
+  )(userId)
 
 export const getCurrentUserProfile = cache(async (): Promise<CurrentUser | null> => {
   return measureQuery('getCurrentUserProfile', async () => {
     const user = await getUser()
     if (!user) return null
 
+    // 1. Try fast cross-request cache first (0ms on warm/repeat loads)
+    try {
+      const cached = await getCachedUserProfile(user.id)
+      if (cached) return cached
+    } catch {
+      // Fallback to direct query if cache fails
+    }
+
+    // 2. Direct fallback query using user session
     const supabase = await createClient()
     const { data: profile, error } = await supabase
       .from('users')

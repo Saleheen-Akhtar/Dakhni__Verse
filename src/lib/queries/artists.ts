@@ -6,7 +6,7 @@ import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
 import { headers } from 'next/headers';
 import { checkRateLimit } from '@/lib/security/rate-limit';
 import { measureQuery } from '@/lib/telemetry/perf';
-import { requireUserSession, requireManagerAction } from '@/lib/auth/helpers';
+import { requireUserSession, requireManagerAction, getCurrentUserProfile } from '@/lib/auth/helpers';
 import { z } from 'zod';
 import {
   createArtistSchema,
@@ -114,8 +114,20 @@ export async function getArtistById(id: string) {
     console.error('Error fetching social links:', linksError);
   }
 
+  // PII Protection: Hide legal name, phone, and email unless caller is Manager or viewing own profile
+  const user = await getCurrentUserProfile();
+  const isManager = user?.role === 'Manager';
+  const isOwner = user?.artist_id === id;
+
+  const resultArtist = { ...artist };
+  if (!isManager && !isOwner) {
+    resultArtist.legal_name = null;
+    resultArtist.phone = null;
+    resultArtist.email = null;
+  }
+
   return {
-    ...artist,
+    ...resultArtist,
     social_links: socialLinks || [],
   };
 }
@@ -858,6 +870,10 @@ export async function approveAndCreateArtistAccount(
   revalidatePath('/dashboard');
   revalidatePath(`/artists/${targetArtistId}`);
   revalidateTag('artist-options');
+  revalidateTag('user-profiles');
+  if (rpcResult?.user_id) {
+    revalidateTag(`user-profile-${rpcResult.user_id}`);
+  }
 
   return {
     success: true,

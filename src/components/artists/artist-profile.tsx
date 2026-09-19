@@ -82,9 +82,14 @@ export function ArtistProfile({
             <Card>
               <CardHeader><CardTitle>Basic Information</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><p className="text-sm text-secondary-foreground">Legal Name</p><p>{artist.legal_name || 'N/A'}</p></div>
-                <div><p className="text-sm text-secondary-foreground">Email</p><p>{artist.email || 'N/A'}</p></div>
-                <div><p className="text-sm text-secondary-foreground">Phone</p><p>{artist.phone || 'N/A'}</p></div>
+                {(canEdit || isManager) && (
+                  <>
+                    <div><p className="text-sm text-secondary-foreground">Legal Name</p><p>{artist.legal_name || 'N/A'}</p></div>
+                    <div><p className="text-sm text-secondary-foreground">Email</p><p>{artist.email || 'N/A'}</p></div>
+                    <div><p className="text-sm text-secondary-foreground">Phone</p><p>{artist.phone || 'N/A'}</p></div>
+                  </>
+                )}
+                <div><p className="text-sm text-secondary-foreground">Location</p><p>{artist.location || 'N/A'}</p></div>
                 <div><p className="text-sm text-secondary-foreground">Date Joined</p><p>{artist.date_joined ? formatDate(artist.date_joined) : 'N/A'}</p></div>
                 <div><p className="text-sm text-secondary-foreground">Dakhni Verse Role</p><p>{artist.dakhni_verse_role || 'N/A'}</p></div>
               </CardContent>
