@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createContributionSchema, updateContributionSchema } from '@/lib/validation/finance';
 import { requireManagerAction } from '@/lib/auth/helpers';
+import { revalidatePath } from 'next/cache';
 import type { Contribution, ContributionWithPerson } from '@/types';
 
 export async function getContributions(filters?: { 
@@ -61,6 +62,8 @@ export async function createContribution(data: any, userId?: string) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/finance');
+  revalidatePath('/dashboard');
   return contribution;
 }
 
@@ -85,6 +88,8 @@ export async function updateContribution(id: string, data: any) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/finance');
+  revalidatePath('/dashboard');
   return contribution;
 }
 
@@ -96,6 +101,8 @@ export async function deleteContribution(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+  revalidatePath('/finance');
+  revalidatePath('/dashboard');
   return true;
 }
 

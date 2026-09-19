@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { cache } from 'react';
 import { createProjectSchema, updateProjectSchema } from '@/lib/validation/project';
 import { requireUserSession, requireManagerAction } from '@/lib/auth/helpers';
+import { revalidatePath } from 'next/cache';
 import type { Project, ProjectWithRelations, ProjectStatusHistory } from '@/types';
 
 export async function getArtistOptions() {
@@ -102,6 +103,8 @@ export async function createProject(data: any, userId?: string) {
 
   if (historyError) console.error('Error adding status history:', historyError);
 
+  revalidatePath('/projects');
+  revalidatePath('/dashboard');
   return project;
 }
 
@@ -125,6 +128,9 @@ export async function updateProject(id: string, data: any, userId?: string) {
 
   if (error) throw error;
 
+  revalidatePath('/projects');
+  revalidatePath(`/projects/${id}`);
+  revalidatePath('/dashboard');
   return project;
 }
 
@@ -136,6 +142,8 @@ export async function deleteProject(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+  revalidatePath('/projects');
+  revalidatePath('/dashboard');
   return true;
 }
 

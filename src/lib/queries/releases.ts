@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createReleaseSchema, updateReleaseSchema } from '@/lib/validation/release';
 import { requireUserSession, requireManagerAction } from '@/lib/auth/helpers';
+import { revalidatePath } from 'next/cache';
 import type { Release, ReleaseWithRelations } from '@/types';
 export async function getArtistOptions() {
   const { getArtistOptions: getOpts } = await import('./artists');
@@ -83,6 +84,8 @@ export async function createRelease(data: any, userId?: string) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/releases');
+  revalidatePath('/dashboard');
   return release;
 }
 
@@ -102,6 +105,9 @@ export async function updateRelease(id: string, data: any) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/releases');
+  revalidatePath(`/releases/${id}`);
+  revalidatePath('/dashboard');
   return release;
 }
 
@@ -113,5 +119,7 @@ export async function deleteRelease(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+  revalidatePath('/releases');
+  revalidatePath('/dashboard');
   return true;
 }

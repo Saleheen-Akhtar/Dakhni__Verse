@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createEquipmentSchema, updateEquipmentSchema } from '@/lib/validation/equipment';
 import { requireManagerAction } from '@/lib/auth/helpers';
+import { revalidatePath } from 'next/cache';
 import type { Equipment, EquipmentWithOwner } from '@/types';
 export async function getArtistOptions() {
   const { getArtistOptions: getOpts } = await import('./artists');
@@ -80,6 +81,7 @@ export async function createEquipment(data: any, userId?: string) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/equipment');
   return equipment;
 }
 
@@ -98,6 +100,7 @@ export async function updateEquipment(id: string, data: any) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/equipment');
   return equipment;
 }
 
@@ -109,5 +112,6 @@ export async function deleteEquipment(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+  revalidatePath('/equipment');
   return true;
 }

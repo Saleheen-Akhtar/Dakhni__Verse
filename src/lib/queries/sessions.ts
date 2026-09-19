@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createSessionSchema, updateSessionSchema } from '@/lib/validation/session';
 import { requireUserSession, requireManagerAction } from '@/lib/auth/helpers';
+import { revalidatePath } from 'next/cache';
 import type { Session, SessionWithRelations } from '@/types';
 export async function getArtistOptions() {
   const { getArtistOptions: getOpts } = await import('./artists');
@@ -77,6 +78,8 @@ export async function createSession(data: any, userId?: string) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/sessions');
+  revalidatePath('/dashboard');
   return session;
 }
 
@@ -104,6 +107,8 @@ export async function updateSession(id: string, data: any) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/sessions');
+  revalidatePath('/dashboard');
   return session;
 }
 
@@ -115,5 +120,7 @@ export async function deleteSession(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+  revalidatePath('/sessions');
+  revalidatePath('/dashboard');
   return true;
 }

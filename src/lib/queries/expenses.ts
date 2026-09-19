@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createExpenseSchema, updateExpenseSchema } from '@/lib/validation/finance';
 import { requireManagerAction } from '@/lib/auth/helpers';
+import { revalidatePath } from 'next/cache';
 import type { Expense } from '@/types';
 
 export async function getExpenses(filters?: { 
@@ -59,6 +60,8 @@ export async function createExpense(data: any, userId?: string) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/finance');
+  revalidatePath('/dashboard');
   return expense;
 }
 
@@ -82,6 +85,8 @@ export async function updateExpense(id: string, data: any) {
     .single();
 
   if (error) throw error;
+  revalidatePath('/finance');
+  revalidatePath('/dashboard');
   return expense;
 }
 
@@ -93,6 +98,8 @@ export async function deleteExpense(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+  revalidatePath('/finance');
+  revalidatePath('/dashboard');
   return true;
 }
 
