@@ -113,14 +113,96 @@ export async function updateSession(id: string, data: any) {
 }
 
 export async function deleteSession(id: string) {
-  const { supabase } = await requireManagerAction();
-  const { error } = await supabase
+  const { user, profile, supabase } = await requireUserSession();
+
+  let query = supabase
     .from('sessions')
     .delete()
     .eq('id', id);
 
-  if (error) throw error;
+  if (profile.role !== 'Manager' && profile.role !== 'Producer') {
+    query = query.eq('created_by', user.id);
+  }
+
+  const { error } = await query;
+  if (error) {
+    console.error('Error deleting session:', error);
+    throw new Error(error.message || 'Failed to delete session');
+  }
   revalidatePath('/sessions');
   revalidatePath('/dashboard');
-  return true;
+  return { success: true };
+}
+
+export async function cancelSession(id: string, reason?: string) {
+  const { user, profile, supabase } = await requireUserSession();
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('sessions')
+    .select('notes, created_by')
+    .eq('id', id)
+    .single();
+
+  if (fetchErr || !existing) {
+    throw new Error('Session not found');
+  }
+
+  if (profile.role !== 'Manager' && profile.role !== 'Producer' && existing.created_by !== user.id) {
+    throw new Error('Unauthorized to cancel this session');
+  }
+
+  const currentNotes = existing.notes || '';
+  const prefix = '[CANCELLED]';
+  const updatedNotes = currentNotes.includes(prefix)
+    ? currentNotes
+    : `${prefix}${reason ? ` Reason: ${reason}.` : ''} ${currentNotes}`.trim();
+
+  const { error } = await supabase
+    .from('sessions')
+    .update({ notes: updatedNotes })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error cancelling session:', error);
+    throw new Error(error.message || 'Failed to cancel session');
+  }
+  revalidatePath('/sessions');
+  revalidatePath('/dashboard');
+  return { success: true };
+}
+
+export async function restoreSession(id: string) {
+  const { user, profile, supabase } = await requireUserSession();
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('sessions')
+    .select('notes, created_by')
+    .eq('id', id)
+    .single();
+
+  if (fetchErr || !existing) {
+    throw new Error('Session not found');
+  }
+
+  if (profile.role !== 'Manager' && profile.role !== 'Producer' && existing.created_by !== user.id) {
+    throw new Error('Unauthorized to restore this session');
+  }
+
+  const currentNotes = existing.notes || '';
+  const updatedNotes = currentNotes
+    .replace(/\[CANCELLED\](\s*Reason:[^.]*\.)?/g, '')
+    .trim();
+
+  const { error } = await supabase
+    .from('sessions')
+    .update({ notes: updatedNotes })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error restoring session:', error);
+    throw new Error(error.message || 'Failed to restore session');
+  }
+  revalidatePath('/sessions');
+  revalidatePath('/dashboard');
+  return { success: true };
 }

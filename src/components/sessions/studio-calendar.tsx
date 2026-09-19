@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,11 +15,15 @@ import {
   X,
   Plus,
   MessageCircle,
+  Ban,
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatDuration } from "@/lib/utils/format";
 import { SessionReminderDialog } from "./session-reminder-dialog";
+import { SessionDeleteDialog } from "./session-delete-dialog";
 
 export interface SessionItem {
   id: string;
@@ -97,10 +102,12 @@ export const SESSION_TYPE_COLORS: Record<
 };
 
 export function StudioCalendar({ sessions }: StudioCalendarProps) {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [selectedSession, setSelectedSession] = useState<SessionItem | null>(null);
   const [reminderSession, setReminderSession] = useState<SessionItem | null>(null);
+  const [actionSession, setActionSession] = useState<SessionItem | null>(null);
 
   // Group sessions by "YYYY-MM-DD"
   const sessionsByDate = useMemo(() => {
@@ -399,19 +406,27 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
                       const style =
                         SESSION_TYPE_COLORS[session.session_type] ||
                         SESSION_TYPE_COLORS.Other;
+                      const isCancelled = session.notes?.includes("[CANCELLED]");
 
                       return (
                         <button
                           key={session.id}
                           onClick={() => setSelectedSession(session)}
-                          className={`w-full text-left px-1.5 py-1 rounded text-[11px] font-medium border truncate transition-all block ${style.bg} ${style.text} ${style.border}`}
-                          title={`${session.session_type}: ${session.artist?.stage_name || "Artist"} (${session.start_time?.substring(0, 5) || "TBD"})`}
+                          className={`w-full text-left px-1.5 py-1 rounded text-[11px] font-medium border truncate transition-all block ${
+                            isCancelled
+                              ? "bg-neutral-100/90 text-neutral-400 border-dashed border-neutral-300 line-through"
+                              : `${style.bg} ${style.text} ${style.border}`
+                          }`}
+                          title={`${isCancelled ? "[Cancelled] " : ""}${session.session_type}: ${session.artist?.stage_name || "Artist"} (${session.start_time?.substring(0, 5) || "TBD"})`}
                         >
                           <div className="flex items-center gap-1">
                             <span
-                              className={`h-1.5 w-1.5 rounded-full shrink-0 ${style.dot}`}
+                              className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                isCancelled ? "bg-neutral-400" : style.dot
+                              }`}
                             />
                             <span className="truncate">
+                              {isCancelled ? "[Cancelled] " : ""}
                               {session.start_time
                                 ? session.start_time.substring(0, 5)
                                 : ""}{" "}
@@ -489,16 +504,27 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
                         const style =
                           SESSION_TYPE_COLORS[session.session_type] ||
                           SESSION_TYPE_COLORS.Other;
+                        const isCancelled = session.notes?.includes("[CANCELLED]");
 
                         return (
                           <div
                             key={session.id}
                             onClick={() => setSelectedSession(session)}
-                            className={`p-2 rounded-lg border text-left cursor-pointer transition-all shadow-xs hover:shadow-md ${style.bg} ${style.border} ${style.text}`}
+                            className={`p-2 rounded-lg border text-left cursor-pointer transition-all shadow-xs hover:shadow-md ${
+                              isCancelled
+                                ? "bg-neutral-50/80 border-dashed border-neutral-300 text-neutral-500 line-through opacity-65"
+                                : `${style.bg} ${style.border} ${style.text}`
+                            }`}
                           >
                             <div className="flex items-center justify-between gap-1 mb-1">
-                              <span className="text-[10px] font-bold uppercase tracking-wider">
-                                {session.session_type}
+                              <span
+                                className={`text-[10px] font-bold uppercase tracking-wider ${
+                                  isCancelled
+                                    ? "text-amber-800 bg-amber-100 px-1 rounded not-italic"
+                                    : ""
+                                }`}
+                              >
+                                {isCancelled ? "Cancelled" : session.session_type}
                               </span>
                               <span className="text-[10px] font-medium opacity-80">
                                 {session.start_time
@@ -561,6 +587,13 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
               <X className="h-5 w-5" />
             </button>
 
+            {selectedSession.notes?.includes('[CANCELLED]') && (
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                <Ban className="h-4 w-4 shrink-0 text-amber-600" />
+                <span className="font-semibold">This studio session is currently cancelled.</span>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <span
                 className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
@@ -577,6 +610,12 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
               >
                 {selectedSession.session_type} Session
               </span>
+              {selectedSession.notes?.includes('[CANCELLED]') && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                  <Ban className="h-3 w-3" />
+                  Cancelled
+                </span>
+              )}
             </div>
 
             <h3 className="text-xl font-bold font-display text-foreground">
@@ -638,32 +677,62 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
               )}
             </div>
 
-            <div className="pt-3 border-t border-border flex flex-wrap items-center justify-between gap-2">
-              <Button
-                size="sm"
-                onClick={() => setReminderSession(selectedSession)}
-                className="text-xs bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-sm font-semibold"
-              >
-                <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
-                WhatsApp Reminder
-              </Button>
+            <div className="pt-3 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                {!selectedSession.notes?.includes('[CANCELLED]') ? (
+                  <Button
+                    size="sm"
+                    onClick={() => setReminderSession(selectedSession)}
+                    className="text-xs bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-sm font-semibold w-full sm:w-auto"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+                    WhatsApp Reminder
+                  </Button>
+                ) : (
+                  <span className="text-xs text-amber-700 italic">Session cancelled</span>
+                )}
+              </div>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedSession(null)}
-                >
-                  Close
-                </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedSession.notes?.includes('[CANCELLED]') ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActionSession(selectedSession)}
+                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 border-emerald-300"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                    Restore / Delete
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActionSession(selectedSession)}
+                    className="text-xs font-semibold text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-300"
+                  >
+                    <Ban className="h-3.5 w-3.5 mr-1" />
+                    Cancel / Delete
+                  </Button>
+                )}
+
                 {selectedSession.project?.id && (
-                  <Button asChild size="sm">
+                  <Button asChild variant="outline" size="sm" className="text-xs">
                     <Link href={`/projects/${selectedSession.project.id}`}>
                       <Music className="h-3.5 w-3.5 mr-1" />
-                      View Project
+                      Project
                     </Link>
                   </Button>
                 )}
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedSession(null)}
+                  className="text-xs"
+                >
+                  Close
+                </Button>
               </div>
             </div>
           </div>
@@ -674,6 +743,18 @@ export function StudioCalendar({ sessions }: StudioCalendarProps) {
       <SessionReminderDialog
         session={reminderSession}
         onClose={() => setReminderSession(null)}
+      />
+
+      {/* Cancel or Delete Session Modal */}
+      <SessionDeleteDialog
+        session={actionSession}
+        open={Boolean(actionSession)}
+        onOpenChange={(open) => !open && setActionSession(null)}
+        onSuccess={() => {
+          setSelectedSession(null);
+          setActionSession(null);
+          router.refresh();
+        }}
       />
     </div>
   );
