@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Download, X, Share, PlusSquare, Smartphone, CheckCircle, Sparkles } from 'lucide-react';
+import { Download, X, Share, PlusSquare, Smartphone, CheckCircle, Sparkles, MoreVertical, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -13,8 +13,10 @@ export function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isIos, setIsIos] = useState(false);
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
+  const [showAndroidGuide, setShowAndroidGuide] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -30,24 +32,19 @@ export function PwaInstallPrompt() {
 
     if (checkStandalone()) return;
 
-    // Check if dismissed previously in session
+    // Check if dismissed previously in this session
     const wasDismissed = sessionStorage.getItem('dakhni_pwa_dismissed');
     if (wasDismissed) {
       setDismissed(true);
     }
 
-    // Check if iOS
     const ua = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(ua);
     setIsIos(isIosDevice);
 
-    // If iOS and not standalone and not dismissed, show prompt after a short delay
-    if (isIosDevice && !wasDismissed) {
-      const timer = setTimeout(() => {
-        setShowBanner(true);
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
+    // Detect in-app webviews (Instagram, Facebook, Twitter, WhatsApp browser)
+    const inApp = /fban|fbav|instagram|threads|line|micromessenger|twitter/.test(ua);
+    setIsInAppBrowser(inApp);
 
     // Android / Chromium beforeinstallprompt handler
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -58,19 +55,41 @@ export function PwaInstallPrompt() {
       }
     };
 
-    // Custom event listener so other buttons (e.g. sidebar) can open the install guide
+    // Show automatic banner after 3 seconds on iOS if not dismissed
+    if (isIosDevice && !wasDismissed) {
+      const timer = setTimeout(() => {
+        setShowBanner(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+
+    // Custom event listener triggered by "Install Mobile App" button anywhere
     const handleOpenInstall = () => {
       if (deferredPrompt) {
-        deferredPrompt.prompt();
+        deferredPrompt.prompt().then(() => {
+          return deferredPrompt.userChoice;
+        }).then((choice) => {
+          if (choice.outcome === 'accepted') {
+            setShowBanner(false);
+            setDeferredPrompt(null);
+          }
+        }).catch(() => {
+          setShowAndroidGuide(true);
+        });
       } else if (isIosDevice) {
         setShowIosGuide(true);
       } else {
-        setShowBanner(true);
+        setShowAndroidGuide(true);
       }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('open-pwa-install', handleOpenInstall);
+
+    // Show banner on Android if deferred prompt is already available
+    if (deferredPrompt && !wasDismissed) {
+      setShowBanner(true);
+    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -80,20 +99,25 @@ export function PwaInstallPrompt() {
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setShowBanner(false);
-        setDeferredPrompt(null);
+      try {
+        await deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setShowBanner(false);
+          setDeferredPrompt(null);
+        }
+      } catch {
+        setShowAndroidGuide(true);
       }
     } else if (isIos) {
       setShowIosGuide(true);
+    } else {
+      setShowAndroidGuide(true);
     }
   };
 
   const handleDismiss = () => {
     setShowBanner(false);
-    setShowIosGuide(false);
     setDismissed(true);
     sessionStorage.setItem('dakhni_pwa_dismissed', 'true');
   };
@@ -170,6 +194,15 @@ export function PwaInstallPrompt() {
               </button>
             </div>
 
+            {isInAppBrowser && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2">
+                <Globe className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold">Open in Safari:</span> You are currently viewing inside an in-app browser. Tap the menu and choose <span className="font-semibold">Open in Safari</span> to install to your home screen.
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3 text-xs text-neutral-700">
               <div className="flex items-start gap-3 p-2.5 bg-neutral-50 rounded-lg border border-neutral-200/60">
                 <div className="w-6 h-6 rounded-full bg-[#111111] text-white flex items-center justify-center shrink-0 font-bold text-[11px]">
@@ -197,7 +230,7 @@ export function PwaInstallPrompt() {
                 </div>
                 <div>
                   <span className="font-semibold text-neutral-900 block">Confirm &amp; Launch</span>
-                  Tap <span className="font-semibold text-neutral-900">&ldquo;Add&rdquo;</span> in the top right. Open Dakhni Verse from your home screen!
+                  Tap <span className="font-semibold text-neutral-900">&ldquo;Add&rdquo;</span> in the top right. Open Dakhni Verse directly from your home screen!
                 </div>
               </div>
             </div>
@@ -205,6 +238,81 @@ export function PwaInstallPrompt() {
             <Button
               type="button"
               onClick={() => setShowIosGuide(false)}
+              className="w-full text-xs bg-neutral-900 hover:bg-neutral-800 text-white font-medium mt-2"
+            >
+              Got It
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Android & Desktop Chrome Installation Modal */}
+      {showAndroidGuide && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-sm w-full p-6 text-neutral-900 space-y-4 shadow-2xl border border-neutral-200 animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#111111] text-[#D71920] flex items-center justify-center font-display font-black text-xs">
+                  DV
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold font-display text-neutral-950">Install Dakhni Verse</h3>
+                  <p className="text-[11px] text-neutral-500">Add to your device as a standalone app</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAndroidGuide(false)}
+                className="text-neutral-400 hover:text-neutral-700 p-1 rounded-md text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {isInAppBrowser && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2">
+                <Globe className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold">Open in Chrome:</span> Tap the menu (<MoreVertical className="h-3 w-3 inline" />) and choose <span className="font-semibold">Open in Chrome</span> to install.
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3 text-xs text-neutral-700">
+              <div className="flex items-start gap-3 p-2.5 bg-neutral-50 rounded-lg border border-neutral-200/60">
+                <div className="w-6 h-6 rounded-full bg-[#111111] text-white flex items-center justify-center shrink-0 font-bold text-[11px]">
+                  1
+                </div>
+                <div>
+                  <span className="font-semibold text-neutral-900 block">Tap the Browser Menu</span>
+                  In Chrome or Edge, tap the 3-dots menu (<MoreVertical className="h-3 w-3 inline text-neutral-800" />) in the top-right corner.
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-2.5 bg-neutral-50 rounded-lg border border-neutral-200/60">
+                <div className="w-6 h-6 rounded-full bg-[#111111] text-white flex items-center justify-center shrink-0 font-bold text-[11px]">
+                  2
+                </div>
+                <div>
+                  <span className="font-semibold text-neutral-900 block">Tap &ldquo;Install app&rdquo; or &ldquo;Add to Home screen&rdquo;</span>
+                  Look for <span className="font-semibold text-neutral-900">&ldquo;Install app&rdquo;</span> or <span className="font-semibold text-neutral-900">&ldquo;Add to Home screen&rdquo;</span>.
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-2.5 bg-neutral-50 rounded-lg border border-neutral-200/60">
+                <div className="w-6 h-6 rounded-full bg-[#D71920] text-white flex items-center justify-center shrink-0 font-bold text-[11px]">
+                  3
+                </div>
+                <div>
+                  <span className="font-semibold text-neutral-900 block">Launch App</span>
+                  Confirm the prompt. Dakhni Verse will install with the icon and open full-screen!
+                </div>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => setShowAndroidGuide(false)}
               className="w-full text-xs bg-neutral-900 hover:bg-neutral-800 text-white font-medium mt-2"
             >
               Got It

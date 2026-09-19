@@ -6,6 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'Dakhni Verse',
     description: 'Artist & Studio Management Platform for Dakhni Verse Collective',
     start_url: '/',
+    scope: '/',
     id: '/',
     display: 'standalone',
     background_color: '#111111',

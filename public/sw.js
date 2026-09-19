@@ -1,12 +1,12 @@
 // Dakhni Verse Service Worker (PWA)
-const CACHE_NAME = 'dakhni-verse-v1';
+const CACHE_NAME = 'dakhni-verse-v2';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.webmanifest',
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/apple-touch-icon.png',
+  '/icons/favicon-32x32.png',
   '/icons/icon.svg',
 ];
 
@@ -15,7 +15,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('PWA: Some static assets failed to precache', err);
+        console.warn('PWA: Static cache error', err);
       });
     })
   );
@@ -42,7 +42,7 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests, chrome-extensions, and Supabase API/Auth endpoints
+  // Skip non-GET requests, non-http, and Supabase API/Auth endpoints
   if (
     request.method !== 'GET' ||
     !url.protocol.startsWith('http') ||
@@ -53,9 +53,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static Assets (icons, images, fonts): Cache First
+  // Static Assets (icons, images, fonts, manifests): Cache First with Network Fallback
   if (
     url.pathname.startsWith('/icons/') ||
+    url.pathname.includes('manifest') ||
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.svg') ||
     url.pathname.endsWith('.woff2')
@@ -88,15 +89,23 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           return caches.match(request).then((cached) => {
-            return cached || caches.match('/');
+            return cached || caches.match('/manifest.webmanifest');
           });
         })
     );
     return;
   }
 
-  // Default: Network with Cache Fallback
+  // Default: Network First with Cache Fallback
   event.respondWith(
-    fetch(request).catch(() => caches.match(request))
+    fetch(request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request))
   );
 });

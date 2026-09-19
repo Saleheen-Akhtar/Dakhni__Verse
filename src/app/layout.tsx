@@ -34,6 +34,7 @@ export const metadata: Metadata = {
   title: "Dakhni Verse — Studio & Collective",
   description: "Artist & Studio Management Platform for Dakhni Verse Collective",
   applicationName: "Dakhni Verse",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -61,6 +62,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`} suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Dakhni Verse" />
+      </head>
       <body suppressHydrationWarning>
         <TopProgressBar />
         <ToastProvider>{children}</ToastProvider>
