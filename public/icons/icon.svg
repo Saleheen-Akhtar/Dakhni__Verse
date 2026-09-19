@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="104" fill="#111111"/>
+  
+  <!-- Subtle dark vignette gradient -->
+  <radialGradient id="bgGlow" cx="50%" cy="30%" r="60%">
+    <stop offset="0%" stop-color="#222222"/>
+    <stop offset="100%" stop-color="#0A0A0A"/>
+  </radialGradient>
+  <rect width="512" height="512" rx="104" fill="url(#bgGlow)"/>
+
+  <!-- Red Accent Bar (Dakhni Verse brand signature) -->
+  <rect x="76" y="76" width="360" height="12" rx="6" fill="#D71920"/>
+
+  <!-- Music Soundwave / Vinyl Stylized Elements -->
+  <g opacity="0.15">
+    <circle cx="256" cy="270" r="160" stroke="#FFFFFF" stroke-width="2" stroke-dasharray="8 8"/>
+    <circle cx="256" cy="270" r="120" stroke="#FFFFFF" stroke-width="2"/>
+    <circle cx="256" cy="270" r="80" stroke="#FFFFFF" stroke-width="1.5" stroke-dasharray="4 4"/>
+  </g>
+
+  <!-- DV Monogram -->
+  <!-- Letter 'D' -->
+  <path d="M120 160 H210 C258 160 286 188 286 236 V284 C286 332 258 360 210 360 H120 V160 Z M168 206 V314 H204 C230 314 242 298 242 272 V248 C242 222 230 206 204 206 H168 Z" fill="#FFFFFF"/>
+  
+  <!-- Letter 'V' in signature Crimson Red with overlap shadow -->
+  <path d="M260 160 H306 L348 290 L390 160 H436 L374 360 H322 L260 160 Z" fill="#D71920"/>
+
+  <!-- Subtitle Tag: DAKHNI VERSE -->
+  <text x="256" y="420" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="28" fill="#F5F5F5" letter-spacing="6" text-anchor="middle">DAKHNI VERSE</text>
+  <text x="256" y="446" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="14" fill="#D71920" letter-spacing="4" text-anchor="middle">STUDIO &amp; COLLECTIVE</text>
+</svg>

@@ -14,9 +14,11 @@ import {
   Settings,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Smartphone
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
+import { triggerPwaInstall } from '@/components/pwa/pwa-install-prompt';
 
 interface User {
   id: string;
@@ -134,10 +136,21 @@ export function AppShell({ user, children }: AppShellProps) {
               </div>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              closeMenu();
+              triggerPwaInstall();
+            }}
+            className="flex items-center gap-2 text-xs text-gray-300 hover:text-white transition-colors w-full mb-3 px-2.5 py-2 rounded-md bg-[#1c1c1c] hover:bg-[#252525] border border-neutral-800"
+          >
+            <Smartphone className="w-4 h-4 text-[#D71920]" />
+            <span className="font-medium">Install Mobile App</span>
+          </button>
           <form action={signOut}>
             <button 
               type="submit"
-              className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors w-full"
+              className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors w-full px-1"
             >
               <LogOut className="w-4 h-4" />
               Sign Out
