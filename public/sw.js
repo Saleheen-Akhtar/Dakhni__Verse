@@ -1,12 +1,10 @@
 // Dakhni Verse Service Worker (PWA)
-const CACHE_NAME = 'dakhni-verse-v5';
+const CACHE_NAME = 'dakhni-verse-v6';
 const MEDIA_CACHE_NAME = 'dakhni-verse-media-v1';
 const MAX_MEDIA_ITEMS = 60; // Limit to 60 images to prevent device storage bloat
 
 const STATIC_ASSETS = [
   '/offline.html',
-  '/manifest.webmanifest',
-  '/manifest.json',
   '/favicon.ico',
   '/logo.png',
   '/logo-square.png',
@@ -16,7 +14,6 @@ const STATIC_ASSETS = [
   '/icons/icon-maskable-512x512.png',
   '/icons/apple-touch-icon.png',
   '/icons/favicon-32x32.png',
-  '/icons/icon.svg',
 ];
 
 // Trims cache entries if count exceeds maxItems (FIFO)
@@ -106,15 +103,15 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/api/') ||
     url.pathname.includes('/auth/') ||
     url.searchParams.has('_rsc') ||
-    url.pathname.startsWith('/_next/')
+    url.pathname.startsWith('/_next/') ||
+    url.pathname.includes('manifest')
   ) {
     return;
   }
 
-  // Static Assets (icons, images, fonts, manifests): Cache First with Network Fallback
+  // Static Assets (icons, images, fonts): Cache First with Network Fallback
   if (
     url.pathname.startsWith('/icons/') ||
-    url.pathname.includes('manifest') ||
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.svg') ||
     url.pathname.endsWith('.ico') ||
