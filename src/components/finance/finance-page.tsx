@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { getTodayIST } from '@/lib/utils/dates';
 import { EXPENSE_CATEGORIES } from '@/lib/utils/constants';
 import { createContribution, createExpense } from '@/lib/queries/finance';
 import { contributionSchema, expenseSchema } from '@/lib/validation/finance';
@@ -70,12 +71,12 @@ export function FinancePage({
 
   const contributionForm = useForm({
     resolver: zodResolver(contributionSchema),
-    defaultValues: { date: new Date().toISOString().split('T')[0], status: 'Pending', amount: 0 }
+    defaultValues: { date: getTodayIST(), status: 'Pending', amount: 0 }
   });
 
   const expenseForm = useForm({
     resolver: zodResolver(expenseSchema),
-    defaultValues: { date: new Date().toISOString().split('T')[0], amount: 0 }
+    defaultValues: { date: getTodayIST(), amount: 0 }
   });
 
   const onAddContribution = async (data: any) => {

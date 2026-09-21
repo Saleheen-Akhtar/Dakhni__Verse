@@ -124,14 +124,16 @@ export async function updateProject(id: string, data: any) {
 }
 
 export async function deleteProject(id: string) {
+  // Historical data retention: update status to 'Cancelled' instead of destructive hard delete
   const { supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('projects')
-    .delete()
+    .update({ status: 'Cancelled', updated_at: new Date().toISOString() })
     .eq('id', id);
 
   if (error) throw error;
   revalidatePath('/projects');
+  revalidatePath(`/projects/${id}`);
   revalidatePath('/dashboard');
   return true;
 }

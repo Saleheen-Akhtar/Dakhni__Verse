@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, RotateCcw, Move } from "lucide-react";
@@ -16,6 +16,7 @@ const VIEWPORT_SIZE = 280;
 const OUTPUT_SIZE = 500;
 
 export function ImageCropDialog({ open, imageUrl, onCrop, onClose }: ImageCropDialogProps) {
+  const maskId = useId();
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -146,7 +147,7 @@ export function ImageCropDialog({ open, imageUrl, onCrop, onClose }: ImageCropDi
           {/* Crop Container */}
           <div
             className="relative overflow-hidden rounded-lg bg-neutral-900 select-none shadow-inner border border-neutral-300"
-            style={{ width: VIEWPORT_SIZE, height: VIEWPORT_SIZE, cursor: isDragging ? "grabbing" : "grab" }}
+            style={{ width: VIEWPORT_SIZE, height: VIEWPORT_SIZE, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -177,12 +178,12 @@ export function ImageCropDialog({ open, imageUrl, onCrop, onClose }: ImageCropDi
             <div className="absolute inset-0 pointer-events-none">
               <svg width="100%" height="100%" viewBox={`0 0 ${VIEWPORT_SIZE} ${VIEWPORT_SIZE}`}>
                 <defs>
-                  <mask id="circle-cutout">
+                  <mask id={maskId}>
                     <rect width="100%" height="100%" fill="white" />
                     <circle cx={VIEWPORT_SIZE / 2} cy={VIEWPORT_SIZE / 2} r={VIEWPORT_SIZE / 2 - 4} fill="black" />
                   </mask>
                 </defs>
-                <rect width="100%" height="100%" fill="rgba(0, 0, 0, 0.55)" mask="url(#circle-cutout)" />
+                <rect width="100%" height="100%" fill="rgba(0, 0, 0, 0.55)" mask={`url(#${maskId})`} />
                 <circle
                   cx={VIEWPORT_SIZE / 2}
                   cy={VIEWPORT_SIZE / 2}

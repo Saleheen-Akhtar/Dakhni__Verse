@@ -22,7 +22,7 @@ export async function getSessions(filters?: {
   const supabase = await createClient();
   let query = supabase.from('sessions').select(`
     id, artist_id, project_id, session_type, engineer_id, session_date, start_time, end_time, duration_minutes, notes, status, cancellation_reason, cancelled_at, cancelled_by, created_at,
-    artist:artists!artist_id(id, stage_name, phone, location),
+    artist:artists!artist_id(id, stage_name),
     project:projects!project_id(id, title),
     engineer:artists!engineer_id(id, stage_name)
   `, { count: 'exact' });
@@ -119,25 +119,8 @@ export async function updateSession(id: string, data: any) {
 }
 
 export async function deleteSession(id: string) {
-  const { user, profile, supabase } = await requireUserSession();
-
-  let query = supabase
-    .from('sessions')
-    .delete()
-    .eq('id', id);
-
-  if (profile.role !== 'Manager' && profile.role !== 'Producer') {
-    query = query.eq('created_by', user.id);
-  }
-
-  const { error } = await query;
-  if (error) {
-    console.error('Error deleting session:', error);
-    throw new Error(error.message || 'Failed to delete session');
-  }
-  revalidatePath('/sessions');
-  revalidatePath('/dashboard');
-  return { success: true };
+  // Historical data retention: sessions are preserved as Cancelled rather than destroyed
+  return cancelSession(id, 'Cancelled by user');
 }
 
 export async function cancelSession(id: string, reason?: string) {

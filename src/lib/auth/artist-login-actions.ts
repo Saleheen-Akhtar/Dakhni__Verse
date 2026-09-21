@@ -126,35 +126,28 @@ export async function generateArtistLogin({
 
   if (adminError) {
     if (adminError.message.toLowerCase().includes('already registered') || adminError.status === 422) {
-      // User exists in auth. Find their ID
-      if (existingUser?.id) {
-        userId = existingUser.id;
-      } else {
-        // Fallback search across pages if user is not in public.users yet
-        let page = 1;
-        while (!userId && page <= 5) {
-          const { data: listData } = await adminClient.auth.admin.listUsers({ page, perPage: 100 });
-          const matched = listData?.users?.find((u) => u.email?.toLowerCase() === trimmedEmail);
-          if (matched) {
-            userId = matched.id;
-            break;
-          }
-          if (!listData?.users || listData.users.length < 100) break;
-          page++;
-        }
+      // Strict Safe Rule: Reuse is ONLY permitted when:
+      // Auth user exists + public.users exists + role = 'Artist' + artist_id matches this exact artist.
+      if (
+        !existingUser ||
+        !existingUser.id ||
+        existingUser.role !== 'Artist' ||
+        existingUser.artist_id !== artistId
+      ) {
+        throw new Error(
+          `Security alert: This email address "${trimmedEmail}" already belongs to an existing account. Please resolve or unlink the account manually in Supabase Dashboard before generating portal access.`
+        );
       }
 
-      if (userId) {
-        const { error: updateErr } = await adminClient.auth.admin.updateUserById(userId, {
-          password: trimmedPassword,
-          email_confirm: true,
-          user_metadata: { name: artist.stage_name, role: validatedRole },
-        });
-        if (updateErr) {
-          throw new Error(`Failed to update existing auth credentials: ${updateErr.message}`);
-        }
-      } else {
-        throw new Error('Account already registered in Supabase Auth, but user record could not be located.');
+      userId = existingUser.id;
+
+      const { error: updateErr } = await adminClient.auth.admin.updateUserById(existingUser.id, {
+        password: trimmedPassword,
+        email_confirm: true,
+        user_metadata: { name: artist.stage_name, role: validatedRole },
+      });
+      if (updateErr) {
+        throw new Error(`Failed to update existing auth credentials: ${updateErr.message}`);
       }
     } else {
       throw new Error(`Auth creation error: ${adminError.message}`);

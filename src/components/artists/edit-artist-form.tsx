@@ -81,7 +81,11 @@ export function EditArtistForm({ artist }: EditArtistFormProps) {
 
   const processImageFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      toast({ title: 'Invalid file', description: 'Please select an image file (PNG, JPG, etc.)', variant: 'destructive' });
+      toast({ title: 'Invalid file', description: 'Please select an image file (PNG, JPG, WebP)', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'File Too Large', description: 'Profile picture must be 2MB or smaller.', variant: 'destructive' });
       return;
     }
     const reader = new FileReader();

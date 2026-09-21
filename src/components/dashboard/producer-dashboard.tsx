@@ -10,7 +10,7 @@ import {
   UpcomingSession,
   ArtistProjectItem,
 } from "@/lib/queries/artist-portal";
-import type { ProductionWorkload } from "@/types";
+import type { ProductionWorkload, TargetProgress } from "@/types";
 import {
   Music,
   Calendar,
@@ -30,6 +30,7 @@ interface ProducerDashboardProps {
   upcomingSessions: UpcomingSession[];
   projects: ArtistProjectItem[];
   recentActivities: ActivityItem[];
+  targetProgress?: TargetProgress | null;
 }
 
 export function ProducerDashboard({
@@ -39,6 +40,7 @@ export function ProducerDashboard({
   upcomingSessions,
   projects,
   recentActivities,
+  targetProgress,
 }: ProducerDashboardProps) {
   const displayName = artist?.stage_name || userName;
   const nextSession = upcomingSessions[0] || null;
@@ -127,12 +129,21 @@ export function ProducerDashboard({
           icon={<Disc className="h-4 w-4" />}
           href="/projects?status=Mastering"
         />
-        <KPICard
-          label="Upcoming Sessions"
-          value={upcomingSessions.length}
-          icon={<Calendar className="h-4 w-4" />}
-          href="/sessions"
-        />
+        {targetProgress?.hasTarget ? (
+          <KPICard
+            label="Monthly Song Target"
+            value={`${targetProgress.actual} / ${targetProgress.target}`}
+            icon={<Sliders className="h-4 w-4 text-[#D71920]" />}
+            href="/settings"
+          />
+        ) : (
+          <KPICard
+            label="Upcoming Sessions"
+            value={upcomingSessions.length}
+            icon={<Calendar className="h-4 w-4" />}
+            href="/sessions"
+          />
+        )}
       </div>
 
       {/* Production Overview Breakdown */}

@@ -6,40 +6,31 @@ import { getArtistOptions } from "./artists";
 
 export async function getProducers() {
   const supabase = await createClient();
-  
-  // 1. First look for active artists whose role includes "Producer"
-  const { data: producerArtists } = await supabase
-    .from("artists")
-    .select("id, stage_name")
-    .eq("status", "Active")
-    .ilike("dakhni_verse_role", "%Producer%")
-    .order("stage_name", { ascending: true });
 
-  if (producerArtists && producerArtists.length > 0) {
-    return producerArtists.map((a: any) => ({
-      id: a.id,
-      name: a.stage_name,
-    }));
-  }
-
-  // 2. Secondary look for users with Producer role linked to artists
-  const { data: userProducers } = await supabase
+  // Query users with Producer or Manager role, or linked to active artists
+  const { data: users, error } = await supabase
     .from("users")
-    .select("id, name, artist:artists!artist_id(id, stage_name)")
-    .eq("role", "Producer");
+    .select("id, name, email, role, artist_id, artist:artists!artist_id(id, stage_name, dakhni_verse_role, status)")
+    .order("name", { ascending: true });
 
-  if (userProducers && userProducers.length > 0) {
-    const mapped = userProducers
-      .filter((u: any) => u.artist)
-      .map((u: any) => ({
-        id: u.artist.id,
-        name: u.artist.stage_name || u.name,
-      }));
-    if (mapped.length > 0) return mapped;
+  if (error || !users) {
+    console.error("Error fetching producers from users:", error);
+    return [];
   }
 
-  // 3. If no producers are configured, return empty array to prevent assigning targets to non-producers
-  return [];
+  // Include users who are Producers, Managers, or have an artist role of Producer
+  const eligibleUsers = users.filter((u: any) => {
+    if (u.role === "Producer" || u.role === "Manager") return true;
+    const artistRole = u.artist?.dakhni_verse_role || "";
+    return artistRole.toLowerCase().includes("producer");
+  });
+
+  return eligibleUsers.map((u: any) => ({
+    id: u.id, // users.id is required by targets.user_id FK!
+    name: u.artist?.stage_name || u.name,
+    role: u.role,
+    artist_id: u.artist_id,
+  }));
 }
 
 export async function getTargets() {

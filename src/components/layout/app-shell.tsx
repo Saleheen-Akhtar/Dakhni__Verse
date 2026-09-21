@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -55,7 +55,9 @@ const navItems: NavItem[] = [
 
 export function AppShell({ user, children }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -63,8 +65,31 @@ export function AppShell({ user, children }: AppShellProps) {
     }
   }, [user]);
 
+  // Lock body scroll and close on Escape
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setMobileMenuOpen(false);
+          menuButtonRef.current?.focus();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [mobileMenuOpen]);
+
   const toggleMenu = () => setMobileMenuOpen(!mobileMenuOpen);
-  const closeMenu = () => setMobileMenuOpen(false);
+  const closeMenu = () => {
+    setMobileMenuOpen(false);
+    menuButtonRef.current?.focus();
+  };
 
   const visibleNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
@@ -72,7 +97,7 @@ export function AppShell({ user, children }: AppShellProps) {
   });
 
   const renderNavItems = () => (
-    <nav className="flex-1 py-6 space-y-1 overflow-y-auto">
+    <nav className="flex-1 py-6 space-y-1 overflow-y-auto" aria-label="Sidebar Navigation">
       {visibleNavItems.map((item) => {
         const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
         const Icon = item.icon;
@@ -82,7 +107,9 @@ export function AppShell({ user, children }: AppShellProps) {
             key={item.href}
             href={item.href}
             prefetch={false}
-            onClick={closeMenu}
+            onMouseEnter={() => router.prefetch(item.href)}
+            onTouchStart={() => router.prefetch(item.href)}
+            onClick={() => setMobileMenuOpen(false)}
             className={`flex items-center gap-3 px-6 py-3 transition-colors ${
               isActive
                 ? 'bg-[#222222] border-l-4 border-l-[#D71920] text-white'
@@ -98,21 +125,27 @@ export function AppShell({ user, children }: AppShellProps) {
   );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F4F4F4]">
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#111111] text-white flex items-center justify-between px-4 z-20 border-b border-[#222222]">
+    <div className="flex min-h-screen h-[100dvh] overflow-hidden bg-[#F4F4F4]">
+      {/* Mobile Header with safe area padding */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 pt-[env(safe-area-inset-top,0px)] bg-[#111111] text-white flex items-center justify-between px-4 z-20 border-b border-[#222222]">
         <div className="flex items-center gap-2.5">
           <Image
             src="/logo-square.png"
             alt="Dakhni Verse"
             width={32}
             height={32}
-            priority
             className="w-8 h-8 rounded-lg object-contain bg-black border border-neutral-800 shadow-sm"
           />
           <span className="font-display font-bold text-lg tracking-wider">DAKHNI VERSE</span>
         </div>
-        <button onClick={toggleMenu} className="p-2 -mr-2 text-gray-400 hover:text-white">
+        <button
+          ref={menuButtonRef}
+          onClick={toggleMenu}
+          aria-label="Toggle navigation menu"
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-sidebar"
+          className="p-2 -mr-2 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#D71920]"
+        >
           {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
@@ -120,13 +153,17 @@ export function AppShell({ user, children }: AppShellProps) {
       {/* Mobile Overlay */}
       {mobileMenuOpen && (
         <div 
-          className="md:hidden fixed inset-0 bg-black/50 z-30"
-          onClick={closeMenu}
+          className="md:hidden fixed inset-0 bg-black/50 z-30 animate-in fade-in-0"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`
+      <aside
+        id="mobile-sidebar"
+        aria-label="Main Navigation Drawer"
+        className={`
         fixed md:static inset-y-0 left-0 z-40 w-64 bg-[#111111] text-white flex flex-col transition-transform duration-300 ease-in-out
         ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
@@ -170,7 +207,7 @@ export function AppShell({ user, children }: AppShellProps) {
             className="flex items-center gap-2 text-xs text-gray-300 hover:text-white transition-colors w-full mb-3 px-2.5 py-2 rounded-md bg-[#1c1c1c] hover:bg-[#252525] border border-neutral-800"
           >
             <Smartphone className="w-4 h-4 text-[#D71920]" />
-            <span className="font-medium">Install Mobile App</span>
+            <span className="font-medium">Install App</span>
           </button>
           <form 
             action={signOut}

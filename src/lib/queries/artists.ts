@@ -14,6 +14,7 @@ import {
   artistMusicProfileSchema,
   artistSocialLinkSchema,
 } from '@/lib/validation/artist';
+import { getTodayIST } from '@/lib/utils/dates';
 import type { Artist, ArtistWithProfile, ArtistSocialLink, ArtistMusicProfile } from '@/types';
 
 function getAdminSupabase() {
@@ -107,20 +108,38 @@ async function getArtistsImpl(filters?: { status?: string; role?: string; search
 
 export async function getArtistById(id: string) {
   const supabase = await createClient();
+  // 1. Try secure RPC first (enforces database-level column privacy)
+  let artistRecord: any = null;
+  try {
+    const { data: rpcArtist, error: rpcErr } = await supabase.rpc('get_artist_details_secure', { p_artist_id: id });
+    if (!rpcErr && rpcArtist) {
+      artistRecord = rpcArtist;
+    }
+  } catch (e) {}
+
   const [
-    { data: artist, error: artistError },
+    artistQueryRes,
+    { data: musicProfile },
     { data: socialLinks, error: linksError },
   ] = await Promise.all([
-    supabase
+    artistRecord ? Promise.resolve({ data: artistRecord, error: null }) : supabase
       .from('artists')
-      .select('id, stage_name, legal_name, profile_image_url, location, phone, email, date_joined, status, dakhni_verse_role, duplicate_of_id, created_by, created_at, updated_at, music_profile:artist_music_profiles(id, artist_id, primary_role, genres, subgenres, languages, vocal_style, songwriting, composition, instruments, influences, preferred_producers, bio, created_at, updated_at)')
+      .select('id, stage_name, legal_name, profile_image_url, location, phone, email, date_joined, status, dakhni_verse_role, duplicate_of_id, created_by, created_at, updated_at')
       .eq('id', id)
       .single(),
+    supabase
+      .from('artist_music_profiles')
+      .select('id, artist_id, primary_role, genres, subgenres, languages, vocal_style, songwriting, composition, instruments, influences, preferred_producers, bio, created_at, updated_at')
+      .eq('artist_id', id)
+      .maybeSingle(),
     supabase
       .from('artist_social_links')
       .select('id, artist_id, platform, url, created_at, updated_at')
       .eq('artist_id', id),
   ]);
+
+  const artist = artistQueryRes.data;
+  const artistError = artistQueryRes.error;
 
   if (artistError || !artist) {
     console.error('Error fetching artist by id:', artistError);
@@ -145,6 +164,7 @@ export async function getArtistById(id: string) {
 
   return {
     ...resultArtist,
+    music_profile: musicProfile || null,
     social_links: socialLinks || [],
   };
 }
@@ -191,7 +211,7 @@ export async function createArtist(data: any, musicProfile?: any, socialLinks?: 
     location: data?.location || null,
     phone: data?.phone || null,
     email: data?.email || null,
-    date_joined: data?.date_joined || new Date().toISOString().split('T')[0],
+    date_joined: data?.date_joined || getTodayIST(),
     status: data?.status || 'Active',
     dakhni_verse_role: data?.dakhni_verse_role || null,
   };

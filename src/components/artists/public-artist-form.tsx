@@ -11,7 +11,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { ImageCropDialog } from '@/components/ui/image-crop-dialog';
 import { useToast } from '@/components/ui/toast';
 import { submitArtistSelfService } from '@/lib/queries/artists';
-import { uploadProfileImage } from '@/lib/storage/upload';
+import { uploadApplicantImageAction } from '@/lib/storage/intake-upload-actions';
 import { 
   UploadCloud, 
   CheckCircle2, 
@@ -71,7 +71,7 @@ export function PublicArtistForm() {
 
   const [submissionResult, setSubmissionResult] = useState<{
     success: boolean;
-    action: 'created' | 'updated';
+    action: 'created' | 'updated' | 'reapplication';
     artist_id: string;
     stage_name: string;
   } | null>(null);
@@ -151,7 +151,12 @@ export function PublicArtistForm() {
 
   const processImageFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      toast({ title: 'Invalid file', description: 'Please select an image file (PNG, JPG, etc.)', variant: 'destructive' });
+      toast({ title: 'Invalid file', description: 'Please select an image file (PNG, JPG, WebP)', variant: 'destructive' });
+      return;
+    }
+    // Limit to 2MB before reading into browser memory
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'File Too Large', description: 'Profile picture must be 2MB or smaller.', variant: 'destructive' });
       return;
     }
     const reader = new FileReader();
@@ -212,8 +217,8 @@ export function PublicArtistForm() {
         : formData.instruments;
 
       let finalImageUrl = formData.profile_image_url || null;
-      if (finalImageUrl) {
-        finalImageUrl = await uploadProfileImage(finalImageUrl, formData.stage_name || 'applicant');
+      if (finalImageUrl && finalImageUrl.startsWith('data:image/')) {
+        finalImageUrl = await uploadApplicantImageAction(finalImageUrl, formData.stage_name || 'applicant');
       }
 
       const payload = {
@@ -226,17 +231,18 @@ export function PublicArtistForm() {
       const result = await submitArtistSelfService(payload);
 
       if (result?.success) {
+        const isReapplication = result.action === 'reapplication' || result.action === 'updated';
         setSubmissionResult({
           success: true,
-          action: (result.action as 'created' | 'updated') || 'created',
+          action: isReapplication ? 'reapplication' : 'created',
           artist_id: result.artist_id || '',
           stage_name: result.stage_name || formData.stage_name,
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
         toast({
-          title: result.action === 'updated' ? 'Profile Updated!' : 'Welcome to Dakhni Verse!',
-          description: result.action === 'updated'
-            ? `Your existing artist profile for "${result.stage_name}" has been updated.`
+          title: isReapplication ? 'Application Received for Review' : 'Welcome to Dakhni Verse!',
+          description: isReapplication
+            ? `Your updated application for "${result.stage_name}" has been routed to Dakhni Verse management for review.`
             : `Your new profile for "${result.stage_name}" was successfully registered.`,
           variant: 'success',
         });
@@ -268,17 +274,17 @@ export function PublicArtistForm() {
 
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-red-100 text-[#D71920] mb-3">
               <Sparkles className="w-3.5 h-3.5" />
-              {submissionResult.action === 'updated' ? 'Profile Synced & Updated' : 'Application Pending Review'}
+              {submissionResult.action === 'reapplication' ? 'Update Application Submitted' : 'Application Pending Review'}
             </span>
 
             <h2 className="text-2xl sm:text-3xl font-bold font-display text-neutral-900 mb-2">
-              {submissionResult.action === 'updated' ? 'Welcome Back!' : 'Application Submitted!'}
+              {submissionResult.action === 'reapplication' ? 'Application Received for Review' : 'Application Submitted!'}
             </h2>
 
             <p className="text-neutral-600 max-w-md mx-auto mb-8 text-sm sm:text-base">
-              {submissionResult.action === 'updated' ? (
+              {submissionResult.action === 'reapplication' ? (
                 <>
-                  Your artist details for <strong className="text-neutral-900 font-semibold">{submissionResult.stage_name}</strong> were matched with an existing profile and updated with your latest information.
+                  We found an existing artist record matching <strong className="text-neutral-900 font-semibold">{submissionResult.stage_name}</strong>. Your updated application has been routed to Dakhni Verse management for review and approval before merging.
                 </>
               ) : (
                 <>
@@ -341,7 +347,7 @@ export function PublicArtistForm() {
           DAKHNI VERSE
         </h1>
         <p className="mt-2 text-base text-neutral-600 max-w-xl mx-auto">
-          Fill in your artist profile, musical attributes, and streaming links. If studio management already created a placeholder for you, this form will automatically match and update your records.
+          Fill in your artist profile, musical attributes, and streaming links. Applications are securely submitted to Dakhni Verse management for review and collective onboarding.
         </p>
       </div>
 

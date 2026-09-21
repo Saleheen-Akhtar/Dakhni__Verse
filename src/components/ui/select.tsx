@@ -11,6 +11,7 @@ interface SelectContextValue {
   setOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   selectedLabel: string;
   setSelectedLabel: (label: string) => void;
+  contentId: string;
 }
 
 const SelectContext = React.createContext<SelectContextValue | null>(null);
@@ -68,6 +69,7 @@ function CompoundSelect({
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const [open, setOpen] = React.useState(false);
   const [selectedLabel, setSelectedLabel] = React.useState("");
+  const contentId = React.useId();
 
   const value = controlledValue !== undefined ? controlledValue : internalValue;
 
@@ -104,6 +106,7 @@ function CompoundSelect({
         setOpen,
         selectedLabel,
         setSelectedLabel,
+        contentId,
       }}
     >
       <div ref={containerRef} className={cn("relative", className || "w-full")}>
@@ -116,14 +119,30 @@ function CompoundSelect({
 const SelectTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, children, ...props }, ref) => {
+>(({ className, children, onKeyDown, ...props }, ref) => {
   const ctx = React.useContext(SelectContext);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      ctx?.setOpen(true);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      ctx?.setOpen(false);
+    }
+    onKeyDown?.(e);
+  };
 
   return (
     <button
       type="button"
       ref={ref}
+      role="combobox"
+      aria-haspopup="listbox"
+      aria-expanded={Boolean(ctx?.open)}
+      aria-controls={ctx?.contentId}
       onClick={() => ctx?.setOpen((prev) => !prev)}
+      onKeyDown={handleKeyDown}
       className={cn(
         "flex h-10 w-full items-center justify-between rounded-md border border-input bg-dv-gray-light px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className
@@ -171,6 +190,9 @@ const SelectContent = React.forwardRef<
   return (
     <div
       ref={ref}
+      id={ctx?.contentId}
+      role="listbox"
+      tabIndex={-1}
       className={cn(
         "absolute top-full left-0 z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-white py-1 shadow-md text-sm animate-in fade-in-80",
         className
@@ -188,7 +210,7 @@ interface SelectItemProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const SelectItem = React.forwardRef<HTMLDivElement, SelectItemProps>(
-  ({ value, className, children, ...props }, ref) => {
+  ({ value, className, children, onKeyDown, ...props }, ref) => {
     const ctx = React.useContext(SelectContext);
     const isSelected = ctx?.value === value;
     const setSelectedLabel = ctx?.setSelectedLabel;
@@ -199,17 +221,42 @@ const SelectItem = React.forwardRef<HTMLDivElement, SelectItemProps>(
       }
     }, [isSelected, children, setSelectedLabel]);
 
+    const selectThis = () => {
+      if (typeof children === "string") {
+        ctx?.setSelectedLabel(children);
+      }
+      ctx?.onValueChange(value);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectThis();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = (e.currentTarget.nextElementSibling as HTMLElement);
+        if (next && next.focus) next.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = (e.currentTarget.previousElementSibling as HTMLElement);
+        if (prev && prev.focus) prev.focus();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        ctx?.setOpen(false);
+      }
+      onKeyDown?.(e);
+    };
+
     return (
       <div
         ref={ref}
-        onClick={() => {
-          if (typeof children === "string") {
-            ctx?.setSelectedLabel(children);
-          }
-          ctx?.onValueChange(value);
-        }}
+        role="option"
+        tabIndex={0}
+        aria-selected={isSelected}
+        onClick={selectThis}
+        onKeyDown={handleKeyDown}
         className={cn(
-          "relative flex cursor-pointer select-none items-center justify-between rounded-sm px-3 py-2 hover:bg-dv-gray-light text-sm outline-none transition-colors",
+          "relative flex cursor-pointer select-none items-center justify-between rounded-sm px-3 py-2 hover:bg-dv-gray-light text-sm outline-none transition-colors focus:bg-dv-gray-light focus:ring-1 focus:ring-[#D71920]",
           isSelected && "bg-dv-gray-light font-medium",
           className
         )}

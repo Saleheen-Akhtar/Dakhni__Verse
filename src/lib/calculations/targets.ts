@@ -33,7 +33,7 @@ export async function setTarget(
   metric: string,
   targetValue: number,
   period: string = "monthly"
-): Promise<Target | null> {
+): Promise<Target> {
   const supabase = await createClient();
 
   // Upsert: update existing or create new
@@ -49,14 +49,14 @@ export async function setTarget(
   if (existing) {
     const { data, error } = await supabase
       .from("targets")
-      .update({ target_value: targetValue })
+      .update({ target_value: targetValue, updated_at: new Date().toISOString() })
       .eq("id", existing.id)
       .select()
       .single();
 
     if (error) {
       console.error("Error updating target:", error);
-      return null;
+      throw new Error(error.message || "Failed to update target in database");
     }
     return data as Target;
   }
@@ -68,48 +68,16 @@ export async function setTarget(
       metric,
       target_value: targetValue,
       period,
-      effective_from: new Date().toISOString().split("T")[0],
+      effective_from: getTodayIST(),
     })
     .select()
     .single();
 
   if (error) {
     console.error("Error creating target:", error);
-    return null;
+    throw new Error(error.message || "Failed to create target in database");
   }
   return data as Target;
 }
 
-/**
- * Calculate progress toward a target.
- * Returns null percentage if no target is configured.
- */
-export function calculateProgress(
-  actual: number,
-  target: number | null
-): TargetProgress {
-  if (target === null || target === undefined) {
-    return {
-      actual,
-      target: null,
-      percentage: null,
-      hasTarget: false,
-    };
-  }
-
-  if (target === 0) {
-    return {
-      actual,
-      target: 0,
-      percentage: null,
-      hasTarget: true,
-    };
-  }
-
-  return {
-    actual,
-    target,
-    percentage: Math.round((actual / target) * 100),
-    hasTarget: true,
-  };
-}
+export { calculateProgress } from "./progress";

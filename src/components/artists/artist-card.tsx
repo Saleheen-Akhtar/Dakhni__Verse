@@ -1,5 +1,6 @@
 "use client"
 
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +8,7 @@ import { formatDate } from '@/lib/utils/format';
 
 interface ArtistCardProps {
   artist: any;
-  onClick: () => void;
+  onClick?: () => void;
 }
 
 export function ArtistCard({ artist, onClick }: ArtistCardProps) {
@@ -16,9 +17,9 @@ export function ArtistCard({ artist, onClick }: ArtistCardProps) {
   if (artist.status === 'Inactive') badgeVariant = "warning";
   if (artist.status === 'Left') badgeVariant = "secondary";
 
-  return (
+  const card = (
     <Card 
-      className="cursor-pointer transition-all hover:shadow-md hover:border-gray-300"
+      className="cursor-pointer transition-all hover:shadow-md hover:border-gray-300 h-full"
       onClick={onClick}
     >
       <CardContent className="p-6 flex items-start gap-4">
@@ -39,5 +40,11 @@ export function ArtistCard({ artist, onClick }: ArtistCardProps) {
         </div>
       </CardContent>
     </Card>
+  );
+
+  return (
+    <Link href={`/artists/${artist.id}`} className="block h-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D71920]">
+      {card}
+    </Link>
   );
 }

@@ -136,8 +136,16 @@ export function DataTable<T extends Record<string, any>>({
               <tr
                 key={getRowKey(row, i)}
                 onClick={() => onRowClick?.(row)}
+                role={onRowClick ? "button" : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                onKeyDown={onRowClick ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onRowClick(row);
+                  }
+                } : undefined}
                 className={cn(
-                  "border-b border-border last:border-0 hover:bg-dv-gray-light/60 transition-colors",
+                  "border-b border-border last:border-0 hover:bg-dv-gray-light/60 transition-colors focus:bg-dv-gray-light/80 focus:outline-none focus:ring-1 focus:ring-[#D71920]",
                   onRowClick && "cursor-pointer"
                 )}
               >
@@ -161,8 +169,16 @@ export function DataTable<T extends Record<string, any>>({
           <div
             key={getRowKey(row, i)}
             onClick={() => onRowClick?.(row)}
+            role={onRowClick ? "button" : undefined}
+            tabIndex={onRowClick ? 0 : undefined}
+            onKeyDown={onRowClick ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onRowClick(row);
+              }
+            } : undefined}
             className={cn(
-              "p-4 flex flex-col gap-2 hover:bg-dv-gray-light/60 transition-colors",
+              "p-4 flex flex-col gap-2 hover:bg-dv-gray-light/60 transition-colors focus:bg-dv-gray-light/80 focus:outline-none focus:ring-1 focus:ring-[#D71920]",
               onRowClick && "cursor-pointer"
             )}
           >

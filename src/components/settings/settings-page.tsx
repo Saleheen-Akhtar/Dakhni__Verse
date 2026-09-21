@@ -9,29 +9,42 @@ import { toast } from '@/components/ui/use-toast';
 import { setTarget } from '@/lib/queries/settings';
 
 export function SettingsPage({ producers, initialTargets }: { producers: any[]; initialTargets: any[] }) {
+  const [targets, setTargets] = useState<any[]>(initialTargets || []);
   const [selectedProducer, setSelectedProducer] = useState('');
   const [targetValue, setTargetValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSaveTarget = async () => {
     if (!selectedProducer || !targetValue) return;
+    const parsedVal = parseInt(targetValue, 10);
+    if (isNaN(parsedVal) || parsedVal < 0) {
+      toast({ title: 'Invalid Value', description: 'Please enter a valid target number.', variant: 'destructive' });
+      return;
+    }
     
     setIsSaving(true);
     try {
-      await setTarget({
+      const saved = await setTarget({
         user_id: selectedProducer,
         metric: 'songs_per_month',
-        target_value: parseInt(targetValue)
+        target_value: parsedVal,
       });
-      toast({ title: 'Target saved successfully' });
-    } catch (err) {
-      toast({ title: 'Error saving target', variant: 'destructive' });
+
+      // Optimistically update local targets state
+      setTargets((prev) => {
+        const filtered = prev.filter((t) => !(t.user_id === selectedProducer && t.metric === 'songs_per_month'));
+        return [...filtered, saved];
+      });
+
+      toast({ title: 'Target saved successfully', variant: 'default' });
+    } catch (err: any) {
+      toast({ title: 'Error saving target', description: err.message || 'Failed to save target.', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const currentTarget = initialTargets.find(t => t.user_id === selectedProducer && t.metric === 'songs_per_month');
+  const currentTarget = targets.find(t => t.user_id === selectedProducer && t.metric === 'songs_per_month');
 
   return (
     <div className="space-y-6 max-w-4xl">

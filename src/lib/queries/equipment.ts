@@ -22,6 +22,8 @@ export async function getEquipment(filters?: {
     owner:artists!owner_id(id, stage_name)
   `, { count: 'exact' });
 
+  query = query.is('archived_at', null);
+
   if (filters?.owner_type) query = query.eq('owner_type', filters.owner_type);
   if (filters?.search) {
     const s = filters.search.trim().replace(/[%_(),]/g, '');
@@ -105,10 +107,11 @@ export async function updateEquipment(id: string, data: any) {
 }
 
 export async function deleteEquipment(id: string) {
-  const { supabase } = await requireManagerAction();
+  // Historical data retention: archive equipment rather than hard delete
+  const { user, supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('equipment')
-    .delete()
+    .update({ archived_at: new Date().toISOString(), archived_by: user.id })
     .eq('id', id);
 
   if (error) throw error;

@@ -19,6 +19,8 @@ export async function getContributions(filters?: {
     person:artists!person_id(id, stage_name)
   `, { count: 'exact' });
 
+  query = query.is('archived_at', null);
+
   if (filters?.status) query = query.eq('status', filters.status);
   if (filters?.from) query = query.gte('contribution_date', filters.from);
   if (filters?.to) query = query.lte('contribution_date', filters.to);
@@ -94,10 +96,11 @@ export async function updateContribution(id: string, data: any) {
 }
 
 export async function deleteContribution(id: string) {
-  const { supabase } = await requireManagerAction();
+  // Historical data retention: archive contribution rather than hard delete
+  const { user, supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('contributions')
-    .delete()
+    .update({ archived_at: new Date().toISOString(), archived_by: user.id })
     .eq('id', id);
 
   if (error) throw error;
@@ -108,7 +111,10 @@ export async function deleteContribution(id: string) {
 
 export async function getContributionSummary() {
   const supabase = await createClient();
-  const { data, error } = await supabase.from('contributions').select('status, amount');
+  const { data, error } = await supabase
+    .from('contributions')
+    .select('status, amount')
+    .is('archived_at', null);
   
   const summary = { confirmed: 0, pending: 0, planned: 0 };
   

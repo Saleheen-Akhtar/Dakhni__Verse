@@ -19,10 +19,15 @@ import { createArtistSchema, artistMusicProfileSchema, artistSocialLinkSchema } 
 import { ARTIST_STATUSES } from '@/lib/utils/constants';
 import { uploadProfileImage } from '@/lib/storage/upload';
 import { UploadCloud } from 'lucide-react';
+import { getTodayIST } from '@/lib/utils/dates';
 
 const STEPS = ['Basic Info', 'Music Profile', 'Career', 'Social Links', 'Dakhni Verse', 'Review', 'Save'];
 
-export function AddArtistForm() {
+interface AddArtistFormProps {
+  initialData?: any;
+}
+
+export function AddArtistForm({ initialData }: AddArtistFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
@@ -33,7 +38,6 @@ export function AddArtistForm() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formData, setFormData] = useState<any>({
     status: 'Active',
-    date_joined: new Date().toISOString().split('T')[0],
     socialLinks: []
   });
 
@@ -57,28 +61,32 @@ export function AddArtistForm() {
     }));
   };
 
-  const addSocialLink = () => {
+  const handleAddSocialLink = () => {
     setFormData((prev: any) => ({
       ...prev,
-      socialLinks: [...prev.socialLinks, { platform: 'Instagram', url: '' }]
+      socialLinks: [...(prev.socialLinks || []), { platform: 'Instagram', url: '' }]
     }));
   };
 
-  const updateSocialLink = (index: number, field: string, value: string) => {
-    const newLinks = [...formData.socialLinks];
+  const handleSocialLinkChange = (index: number, field: string, value: string) => {
+    const newLinks = [...(formData.socialLinks || [])];
     newLinks[index] = { ...newLinks[index], [field]: value };
     setFormData((prev: any) => ({ ...prev, socialLinks: newLinks }));
   };
 
-  const removeSocialLink = (index: number) => {
-    const newLinks = [...formData.socialLinks];
+  const handleRemoveSocialLink = (index: number) => {
+    const newLinks = [...(formData.socialLinks || [])];
     newLinks.splice(index, 1);
     setFormData((prev: any) => ({ ...prev, socialLinks: newLinks }));
   };
 
   const processImageFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      toast({ title: 'Invalid file', description: 'Please select an image file (PNG, JPG, etc.)', variant: 'destructive' });
+      toast({ title: 'Invalid file', description: 'Please select an image file (PNG, JPG, WebP)', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'File Too Large', description: 'Profile picture must be 2MB or smaller.', variant: 'destructive' });
       return;
     }
     const reader = new FileReader();
@@ -322,24 +330,24 @@ export function AddArtistForm() {
       case 3:
         return (
           <div className="space-y-4">
-            {formData.socialLinks.map((link: any, index: number) => (
+            {(formData.socialLinks || []).map((link: any, index: number) => (
               <div key={index} className="flex gap-4 items-end">
                 <div className="flex-1">
                   <Label>Platform</Label>
                   <Select 
                     value={link.platform} 
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateSocialLink(index, 'platform', e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleSocialLinkChange(index, 'platform', e.target.value)}
                     options={['Instagram', 'YouTube', 'Spotify', 'Apple Music', 'SoundCloud', 'Other'].map(p => ({ label: p, value: p }))}
                   />
                 </div>
                 <div className="flex-[2]">
                   <Label>URL</Label>
-                  <Input value={link.url} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSocialLink(index, 'url', e.target.value)} type="url" />
+                  <Input value={link.url} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSocialLinkChange(index, 'url', e.target.value)} type="url" />
                 </div>
-                <Button variant="destructive" onClick={() => removeSocialLink(index)} type="button">X</Button>
+                <Button variant="destructive" onClick={() => handleRemoveSocialLink(index)} type="button">X</Button>
               </div>
             ))}
-            <Button type="button" onClick={addSocialLink} variant="outline">Add Link</Button>
+            <Button type="button" onClick={handleAddSocialLink} variant="outline">Add Link</Button>
           </div>
         );
       case 4:

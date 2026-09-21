@@ -18,6 +18,8 @@ export async function getExpenses(filters?: {
     id, expense_date, category, amount, paid_by, description, receipt_url, notes, created_at
   `, { count: 'exact' });
 
+  query = query.is('archived_at', null);
+
   if (filters?.category) query = query.eq('category', filters.category);
   if (filters?.from) query = query.gte('expense_date', filters.from);
   if (filters?.to) query = query.lte('expense_date', filters.to);
@@ -91,10 +93,11 @@ export async function updateExpense(id: string, data: any) {
 }
 
 export async function deleteExpense(id: string) {
-  const { supabase } = await requireManagerAction();
+  // Historical data retention: archive expense rather than hard delete
+  const { user, supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('expenses')
-    .delete()
+    .update({ archived_at: new Date().toISOString(), archived_by: user.id })
     .eq('id', id);
 
   if (error) throw error;

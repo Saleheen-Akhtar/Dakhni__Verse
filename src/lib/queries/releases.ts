@@ -24,6 +24,8 @@ export async function getReleases(filters?: {
     project:projects!project_id(id, title)
   `, { count: 'exact' });
 
+  query = query.is('archived_at', null);
+
   if (filters?.artist_id) query = query.eq('artist_id', filters.artist_id);
   if (filters?.status) query = query.eq('status', filters.status);
   if (filters?.search) {
@@ -112,10 +114,11 @@ export async function updateRelease(id: string, data: any) {
 }
 
 export async function deleteRelease(id: string) {
-  const { supabase } = await requireManagerAction();
+  // Historical data retention: archive release rather than hard delete
+  const { user, supabase } = await requireManagerAction();
   const { error } = await supabase
     .from('releases')
-    .delete()
+    .update({ archived_at: new Date().toISOString(), archived_by: user.id })
     .eq('id', id);
 
   if (error) throw error;

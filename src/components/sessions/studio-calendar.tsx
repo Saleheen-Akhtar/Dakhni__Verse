@@ -106,10 +106,13 @@ export const SESSION_TYPE_COLORS: Record<
   },
 };
 
+import { getSessionInterval, doSessionsOverlap } from "@/lib/calculations/calendar";
+export { getSessionInterval, doSessionsOverlap };
+
 export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps) {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [viewMode, setViewMode] = useState<"month" | "week" | "agenda">("month");
   const [selectedSession, setSelectedSession] = useState<SessionItem | null>(null);
   const [reminderSession, setReminderSession] = useState<SessionItem | null>(null);
   const [actionSession, setActionSession] = useState<SessionItem | null>(null);
@@ -130,28 +133,34 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
     return map;
   }, [sessions]);
 
-  // Check if a day has overlapping sessions
-  const checkDayHasOverlap = (daySessions: SessionItem[]) => {
-    if (daySessions.length < 2) return false;
-    for (let i = 0; i < daySessions.length; i++) {
-      for (let j = i + 1; j < daySessions.length; j++) {
-        const s1 = daySessions[i];
-        const s2 = daySessions[j];
-        if (s1.start_time && s1.end_time && s2.start_time && s2.end_time) {
-          if (s1.start_time < s2.end_time && s1.end_time > s2.start_time) {
-            return true;
-          }
+  // Precalculate overlapping session IDs handling overnight spans and excluding cancelled sessions
+  const overlappingSessionIds = useMemo(() => {
+    const set = new Set<string>();
+    const active = sessions.filter(
+      (s) => s.status !== "Cancelled" && !s.notes?.includes("[CANCELLED]") && s.start_time && s.end_time
+    );
+
+    for (let i = 0; i < active.length; i++) {
+      for (let j = i + 1; j < active.length; j++) {
+        if (doSessionsOverlap(active[i], active[j])) {
+          set.add(active[i].id);
+          set.add(active[j].id);
         }
       }
     }
-    return false;
+    return set;
+  }, [sessions]);
+
+  // Check if a day has overlapping sessions
+  const checkDayHasOverlap = (daySessions: SessionItem[]) => {
+    return daySessions.some((s) => overlappingSessionIds.has(s.id));
   };
 
-  // Month navigation helpers
+  // Month / period navigation helpers
   const prevPeriod = () => {
     setCurrentDate((prev) => {
       const copy = new Date(prev);
-      if (viewMode === "month") {
+      if (viewMode === "month" || viewMode === "agenda") {
         copy.setMonth(copy.getMonth() - 1);
       } else {
         copy.setDate(copy.getDate() - 7);
@@ -163,7 +172,7 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
   const nextPeriod = () => {
     setCurrentDate((prev) => {
       const copy = new Date(prev);
-      if (viewMode === "month") {
+      if (viewMode === "month" || viewMode === "agenda") {
         copy.setMonth(copy.getMonth() + 1);
       } else {
         copy.setDate(copy.getDate() + 7);
@@ -294,6 +303,13 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
             size="icon"
             onClick={prevPeriod}
             className="h-8 w-8"
+            aria-label={
+              viewMode === "month"
+                ? "Previous month"
+                : viewMode === "week"
+                ? "Previous week"
+                : "Previous period"
+            }
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -302,6 +318,13 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
             size="icon"
             onClick={nextPeriod}
             className="h-8 w-8"
+            aria-label={
+              viewMode === "month"
+                ? "Next month"
+                : viewMode === "week"
+                ? "Next week"
+                : "Next period"
+            }
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -314,15 +337,20 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
             Today
           </Button>
           <h2 className="text-lg font-bold font-display ml-2 text-[#111111]">
-            {viewMode === "month" ? monthTitle : weekTitle}
+            {viewMode === "week" ? weekTitle : monthTitle}
           </h2>
         </div>
 
         {/* View Mode Toggle & Add Button */}
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-lg bg-muted p-1 text-muted-foreground">
+          <div
+            className="inline-flex rounded-lg bg-muted p-1 text-muted-foreground"
+            role="group"
+            aria-label="Calendar view options"
+          >
             <button
               onClick={() => setViewMode("month")}
+              aria-pressed={viewMode === "month"}
               className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
                 viewMode === "month"
                   ? "bg-white text-foreground shadow-sm"
@@ -333,6 +361,7 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
             </button>
             <button
               onClick={() => setViewMode("week")}
+              aria-pressed={viewMode === "week"}
               className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
                 viewMode === "week"
                   ? "bg-white text-foreground shadow-sm"
@@ -340,6 +369,17 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
               }`}
             >
               Week
+            </button>
+            <button
+              onClick={() => setViewMode("agenda")}
+              aria-pressed={viewMode === "agenda"}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                viewMode === "agenda"
+                  ? "bg-white text-foreground shadow-sm"
+                  : "hover:text-foreground"
+              }`}
+            >
+              Agenda
             </button>
           </div>
 
@@ -457,7 +497,7 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
             })}
           </div>
         </div>
-      ) : (
+      ) : viewMode === "week" ? (
         /* Week View Grid */
         <div className="bg-white rounded-xl border border-border shadow-sm overflow-x-auto">
           <div className="min-w-[700px]">
@@ -562,6 +602,127 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
             </div>
           </div>
         </div>
+      ) : (
+        /* Agenda / List View for Mobile & Compact Scheduling */
+        <div className="bg-white rounded-xl border border-border shadow-sm p-4 space-y-4">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <h3 className="text-sm font-bold text-foreground">
+              Agenda Schedule — {monthTitle}
+            </h3>
+            <span className="text-xs text-muted-foreground font-medium">
+              {sessions.filter((s) => s.session_date?.startsWith(currentDate.toISOString().slice(0, 7))).length} sessions
+            </span>
+          </div>
+
+          <div className="divide-y divide-border">
+            {monthData
+              .filter((cell) => cell.isCurrentMonth && (sessionsByDate.get(cell.dateStr) || []).length > 0)
+              .map((cell) => {
+                const daySessions = sessionsByDate.get(cell.dateStr) || [];
+                const hasOverlap = checkDayHasOverlap(daySessions);
+
+                return (
+                  <div key={cell.dateStr} className="py-3 first:pt-0 last:pb-0 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                            cell.isToday
+                              ? "bg-[#D71920] text-white"
+                              : "bg-muted text-foreground"
+                          }`}
+                        >
+                          {cell.date.toLocaleDateString("en-US", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                        {cell.isToday && (
+                          <span className="text-[11px] font-semibold text-[#D71920]">
+                            Today
+                          </span>
+                        )}
+                      </div>
+                      {hasOverlap && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                          <AlertTriangle className="h-3 w-3 text-amber-600" />
+                          Time Overlap
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {daySessions.map((session) => {
+                        const style =
+                          SESSION_TYPE_COLORS[session.session_type] ||
+                          SESSION_TYPE_COLORS.Other;
+                        const isCancelled =
+                          session.status === "Cancelled" ||
+                          session.notes?.includes("[CANCELLED]");
+
+                        return (
+                          <div
+                            key={session.id}
+                            onClick={() => setSelectedSession(session)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setSelectedSession(session);
+                              }
+                            }}
+                            className={`p-3 rounded-lg border text-left cursor-pointer transition-all shadow-xs hover:shadow-md ${
+                              isCancelled
+                                ? "bg-neutral-50 border-dashed border-neutral-300 text-neutral-500 opacity-70"
+                                : `${style.bg} ${style.border} ${style.text}`
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span
+                                className={`text-[10px] font-bold uppercase tracking-wider ${
+                                  isCancelled ? "line-through text-amber-800" : ""
+                                }`}
+                              >
+                                {isCancelled ? "Cancelled" : session.session_type}
+                              </span>
+                              <span className="text-xs font-semibold">
+                                {session.start_time?.substring(0, 5)} -{" "}
+                                {session.end_time?.substring(0, 5)}
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold truncate">
+                              {session.artist?.stage_name || "Collective Artist"}
+                            </p>
+                            {session.project?.title && (
+                              <p className="text-xs opacity-90 truncate mt-0.5">
+                                {session.project.title}
+                              </p>
+                            )}
+                            {session.engineer && (
+                              <p className="text-[11px] opacity-75 truncate mt-1">
+                                Eng: {session.engineer.stage_name}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+            {monthData.filter(
+              (cell) =>
+                cell.isCurrentMonth && (sessionsByDate.get(cell.dateStr) || []).length > 0
+            ).length === 0 && (
+              <div className="py-12 text-center text-muted-foreground text-sm">
+                No studio sessions booked for {monthTitle}.
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Color Legend Bar */}
@@ -584,12 +745,16 @@ export function StudioCalendar({ sessions, canBook = true }: StudioCalendarProps
           onClick={() => setSelectedSession(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Studio session details"
             className="bg-white rounded-xl shadow-xl border border-border max-w-md w-full p-6 space-y-4 relative animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setSelectedSession(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-1"
+              aria-label="Close session details"
             >
               <X className="h-5 w-5" />
             </button>

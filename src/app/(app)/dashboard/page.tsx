@@ -25,6 +25,7 @@ import {
   getProducerAssignedProjects,
 } from "@/lib/queries/artist-portal";
 import { getArtistKPIs } from "@/lib/calculations/artist-kpi";
+import { getTarget, calculateProgress } from "@/lib/calculations/targets";
 import {
   Users,
   Music,
@@ -370,12 +371,18 @@ async function AsyncProducerDashboardSection({ profile }: { profile: any }) {
   const artist = profile ? await resolveArtistForUser(profile) : null;
   const artistId = artist?.id || profile?.artist_id;
 
-  const [workload, upcomingSessions, projects, recentActivities] = await Promise.all([
+  const [workload, upcomingSessions, projects, recentActivities, target] = await Promise.all([
     getProductionWorkload(artistId),
     getProducerUpcomingSessions(artistId, 5),
     getProducerAssignedProjects(artistId, 6),
     getRecentActivity(15),
+    profile?.id ? getTarget(profile.id, 'songs_per_month') : Promise.resolve(null),
   ]);
+
+  const targetProgress = calculateProgress(
+    workload.production.completed,
+    target?.target_value ?? null
+  );
 
   return (
     <ProducerDashboard
@@ -385,6 +392,7 @@ async function AsyncProducerDashboardSection({ profile }: { profile: any }) {
       upcomingSessions={upcomingSessions}
       projects={projects}
       recentActivities={recentActivities}
+      targetProgress={targetProgress}
     />
   );
 }

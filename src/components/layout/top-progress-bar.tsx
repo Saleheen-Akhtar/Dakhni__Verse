@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 function ProgressBarInner() {
@@ -8,9 +8,16 @@ function ProgressBarInner() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const timersRef = useRef<NodeJS.Timeout[]>([]);
+
+  const clearTimers = () => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  };
 
   // When pathname or search params change, complete and hide progress
   useEffect(() => {
+    clearTimers();
     if (loading) {
       setProgress(100);
       const timeout = setTimeout(() => {
@@ -50,20 +57,18 @@ function ProgressBarInner() {
       const currentUrl = window.location.pathname + window.location.search;
       if (href === currentUrl) return;
 
-      // Start progress
+      // Clear any running timers and start progress
+      clearTimers();
       setLoading(true);
       setProgress(25);
       const t1 = setTimeout(() => setProgress(65), 150);
       const t2 = setTimeout(() => setProgress(85), 400);
-
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
+      timersRef.current = [t1, t2];
     };
 
     document.addEventListener('click', handleClick, { capture: true });
     return () => {
+      clearTimers();
       document.removeEventListener('click', handleClick, { capture: true });
     };
   }, []);
