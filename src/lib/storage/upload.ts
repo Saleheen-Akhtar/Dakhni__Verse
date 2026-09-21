@@ -29,18 +29,18 @@ export async function uploadProfileImage(dataUrlOrUrl: string | null | undefined
     const fileName = `avatars/${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
     const { error } = await supabase.storage.from('profile-images').upload(fileName, blob, {
       contentType: mime,
-      upsert: true,
+      upsert: false,
     });
 
     if (error) {
-      console.warn('Storage upload error, falling back to data URL:', error.message);
-      return dataUrlOrUrl;
+      console.error('Storage upload error:', error.message);
+      throw new Error(`Failed to upload profile image: ${error.message}`);
     }
 
     const { data: urlData } = supabase.storage.from('profile-images').getPublicUrl(fileName);
     return urlData.publicUrl;
   } catch (err: any) {
-    console.warn('Storage upload exception:', err?.message);
-    return dataUrlOrUrl;
+    console.error('Storage upload exception:', err?.message);
+    throw new Error(err?.message || 'Profile image upload failed. Please try a different image.');
   }
 }

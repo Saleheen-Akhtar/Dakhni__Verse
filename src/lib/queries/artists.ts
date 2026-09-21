@@ -471,7 +471,11 @@ export async function submitArtistSelfService(data: any): Promise<{ success: boo
   }
 
   const adminClient = getAdminSupabase();
-  const supabase = adminClient || (await createClient());
+  if (!adminClient) {
+    console.error('Missing SUPABASE_SERVICE_ROLE_KEY for server-side public submission');
+    return { success: false, error: 'Submission service is temporarily unavailable. Please try again shortly.' };
+  }
+  const supabase = adminClient;
 
   const stageName = (data.stage_name || '').trim();
   if (!stageName) {
@@ -646,49 +650,15 @@ export async function acceptArtistApplication(artistId: string) {
 
   if (applicant?.duplicate_of_id) {
     const existingId = applicant.duplicate_of_id;
-    // 1. Merge submitted fields into the existing active artist record (never alter identity or ID)
-    const updateFields: any = { updated_at: new Date().toISOString() };
-    if (applicant.legal_name) updateFields.legal_name = applicant.legal_name;
-    if (applicant.profile_image_url) updateFields.profile_image_url = applicant.profile_image_url;
-    if (applicant.location) updateFields.location = applicant.location;
-    if (applicant.phone) updateFields.phone = applicant.phone;
-    if (applicant.email) updateFields.email = applicant.email;
+    const { error: mergeErr } = await supabase.rpc('merge_and_approve_artist_application', {
+      p_applicant_id: artistId,
+      p_target_artist_id: existingId,
+    });
 
-    await supabase.from('artists').update(updateFields).eq('id', existingId);
-
-    // 2. Merge music profile
-    if (applicant.music_profile) {
-      const { id: _pId, artist_id: _aId, ...profileData } = applicant.music_profile;
-      await supabase.from('artist_music_profiles').upsert({
-        artist_id: existingId,
-        ...profileData,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'artist_id' });
+    if (mergeErr) {
+      console.error('Error in merge_and_approve_artist_application:', mergeErr);
+      throw new Error(mergeErr.message || 'Failed to merge applicant into existing artist record');
     }
-
-    // 3. Merge social links
-    if (applicant.social_links && applicant.social_links.length > 0) {
-      await supabase.from('artist_social_links').delete().eq('artist_id', existingId);
-      const linksToInsert = applicant.social_links.map((l: any) => ({
-        artist_id: existingId,
-        platform: l.platform,
-        url: l.url,
-      }));
-      await supabase.from('artist_social_links').insert(linksToInsert);
-    }
-
-    // 4. Delete the pending application record so no duplicate artist identity is created
-    await supabase.from('artists').delete().eq('id', artistId);
-
-    // 5. Activity log
-    try {
-      await supabase.from('activity_logs').insert([{
-        action: 'Artist Profile Updated',
-        entity_type: 'Artist',
-        entity_id: existingId,
-        description: `Re-application for "${applicant.stage_name}" approved: updates merged into existing profile without creating duplicate artist.`,
-      }]);
-    } catch {}
 
     revalidatePath('/artists');
     revalidatePath('/artists/review');
@@ -831,44 +801,20 @@ export async function approveAndCreateArtistAccount(
   let targetArtistId = artistId;
   let wasMerged = false;
 
-  // If this is a re-application / duplicate of an existing artist, merge first
+  // If this is a re-application / duplicate of an existing artist, merge atomically first
   if (applicant.duplicate_of_id) {
     targetArtistId = applicant.duplicate_of_id;
     wasMerged = true;
 
-    // Merge submitted fields into existing active artist record
-    const updateFields: any = { updated_at: new Date().toISOString() };
-    if (applicant.legal_name) updateFields.legal_name = applicant.legal_name;
-    if (applicant.profile_image_url) updateFields.profile_image_url = applicant.profile_image_url;
-    if (applicant.location) updateFields.location = applicant.location;
-    if (applicant.phone) updateFields.phone = applicant.phone;
-    if (applicant.email) updateFields.email = applicant.email;
+    const { error: mergeErr } = await supabase.rpc('merge_and_approve_artist_application', {
+      p_applicant_id: artistId,
+      p_target_artist_id: applicant.duplicate_of_id,
+    });
 
-    await supabase.from('artists').update(updateFields).eq('id', targetArtistId);
-
-    // Merge music profile
-    if (applicant.music_profile) {
-      const { id: _pId, artist_id: _aId, ...profileData } = applicant.music_profile;
-      await supabase.from('artist_music_profiles').upsert({
-        artist_id: targetArtistId,
-        ...profileData,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'artist_id' });
+    if (mergeErr) {
+      console.error('merge_and_approve_artist_application error:', mergeErr);
+      throw new Error(mergeErr.message || 'Failed to merge re-application before creating login');
     }
-
-    // Merge social links
-    if (applicant.social_links && applicant.social_links.length > 0) {
-      await supabase.from('artist_social_links').delete().eq('artist_id', targetArtistId);
-      const linksToInsert = applicant.social_links.map((l: any) => ({
-        artist_id: targetArtistId,
-        platform: l.platform,
-        url: l.url,
-      }));
-      await supabase.from('artist_social_links').insert(linksToInsert);
-    }
-
-    // Delete the pending duplicate record
-    await supabase.from('artists').delete().eq('id', artistId);
   }
 
   // Call the secure RPC to generate/link auth account

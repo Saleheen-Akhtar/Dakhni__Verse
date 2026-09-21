@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { CurrentUser } from "@/types";
+import { getTodayIST } from "@/lib/utils/dates";
 
 export interface ArtistSummary {
   id: string;
@@ -63,12 +64,13 @@ export async function resolveArtistForUser(profile: CurrentUser): Promise<Artist
     if (data) return data;
   }
 
-  // 2. Safe Fallback: exact match by user email
+  // 2. Safe Fallback: exact match by user email (lower-cased without wildcard expansion)
   if (profile.email) {
+    const lowerEmail = profile.email.trim().toLowerCase();
     const { data } = await supabase
       .from("artists")
       .select("id, stage_name, profile_image_url, dakhni_verse_role")
-      .ilike("email", profile.email.trim())
+      .eq("email", lowerEmail)
       .limit(1)
       .maybeSingle();
 
@@ -83,7 +85,7 @@ export async function resolveArtistForUser(profile: CurrentUser): Promise<Artist
  */
 export async function getArtistUpcomingSessions(artistId: string): Promise<UpcomingSession[]> {
   const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayIST();
 
   const { data, error } = await supabase
     .from("sessions")
@@ -162,7 +164,7 @@ export async function getProducerUpcomingSessions(artistId?: string | null, limi
   }
 
   const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayIST();
 
   const { data, error } = await supabase
     .from("sessions")

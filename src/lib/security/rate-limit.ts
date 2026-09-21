@@ -64,12 +64,12 @@ export async function checkRateLimit(
     }
   }
 
-  // 2. Centralized PostgreSQL atomic RPC check
+  // 2. Centralized PostgreSQL atomic RPC check (via service_role key)
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (url && anonKey) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (url && serviceKey) {
     try {
-      const supabase = createSupabaseClient(url, anonKey, {
+      const supabase = createSupabaseClient(url, serviceKey, {
         auth: { persistSession: false, autoRefreshToken: false },
       });
       const { data, error } = await supabase.rpc('check_rate_limit_rpc', {

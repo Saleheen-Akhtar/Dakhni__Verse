@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Target, TargetProgress } from "@/types";
+import { getTodayIST } from "@/lib/utils/dates";
 
 /**
  * Target management and progress calculations.
@@ -11,7 +12,7 @@ export async function getTarget(
   metric: string
 ): Promise<Target | null> {
   const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayIST();
 
   const { data, error } = await supabase
     .from("targets")

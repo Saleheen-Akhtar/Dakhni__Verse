@@ -45,7 +45,10 @@ export const artistMusicProfileSchema = z.object({
 
 export const artistSocialLinkSchema = z.object({
   platform: z.string().min(1, "Platform is required"),
-  url: z.string().url("Invalid URL"),
+  url: z
+    .string()
+    .url("Invalid URL")
+    .refine((u) => /^https?:\/\//i.test(u), "Only HTTP/HTTPS URLs are allowed"),
 });
 
 export type CreateArtistInput = z.infer<typeof createArtistSchema>;

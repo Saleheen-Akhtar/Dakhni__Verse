@@ -22,7 +22,7 @@ export function formatWhatsAppSessionReminder(session: any): string {
   const sessionType = session.session_type || 'Recording';
   const projectTitle = session.project?.title ? `"${session.project.title}"` : 'Studio Project';
   const engineerName = session.engineer?.stage_name || session.engineer?.name || 'Studio Engineer';
-  const location = session.artist?.location || 'Dakhni Verse Main Studio, Bengaluru';
+  const studioLocation = 'Dakhni Verse Main Studio, Bengaluru';
   const notes = session.notes ? session.notes.trim() : '';
 
   let message = `🎙️ *STUDIO SESSION REMINDER — DAKHNI VERSE*\n\n`;
@@ -32,7 +32,7 @@ export function formatWhatsAppSessionReminder(session: any): string {
   message += `🎛️ *Session Type:* ${sessionType} Session\n`;
   message += `🎵 *Project:* ${projectTitle}\n`;
   message += `🎧 *Engineer / Producer:* ${engineerName}\n`;
-  message += `📍 *Studio Location:* ${location}\n\n`;
+  message += `📍 *Studio Location:* ${studioLocation}\n\n`;
 
   if (notes) {
     message += `📝 *Session Prep & Notes:*\n"${notes}"\n\n`;

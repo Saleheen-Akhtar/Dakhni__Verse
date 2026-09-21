@@ -4,6 +4,7 @@ const MEDIA_CACHE_NAME = 'dakhni-verse-media-v1';
 const MAX_MEDIA_ITEMS = 60; // Limit to 60 images to prevent device storage bloat
 
 const STATIC_ASSETS = [
+  '/offline.html',
   '/manifest.webmanifest',
   '/manifest.json',
   '/favicon.ico',
@@ -139,7 +140,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request).catch(() => {
         return caches.match(request).then((cached) => {
-          return cached || caches.match('/manifest.webmanifest');
+          return cached || caches.match('/offline.html');
         });
       })
     );

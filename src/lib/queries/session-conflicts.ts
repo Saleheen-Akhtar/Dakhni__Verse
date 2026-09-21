@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { shiftDateString } from "@/lib/utils/dates";
 
 export interface SessionConflict {
   id: string;
@@ -8,44 +9,39 @@ export interface SessionConflict {
   start_time: string | null;
   end_time: string | null;
   session_type: string;
-  artist_id: string | null;
-  engineer_id: string | null;
+  artist_id?: string | null;
+  engineer_id?: string | null;
   artist_name?: string;
   engineer_name?: string;
   project_title?: string;
   conflictTypes: ("time_overlap" | "artist_overlap" | "engineer_overlap")[];
 }
 
-export interface ConflictCheckParams {
+export async function checkSessionConflicts(params: {
   sessionDate: string;
   startTime: string;
   endTime: string;
-  artistId?: string | null;
-  engineerId?: string | null;
-  excludeSessionId?: string | null;
-}
-
-export async function checkSessionConflicts(
-  params: ConflictCheckParams
-): Promise<{ hasConflict: boolean; conflicts: SessionConflict[] }> {
+  artistId?: string;
+  engineerId?: string;
+  excludeSessionId?: string;
+}): Promise<{ hasConflict: boolean; conflicts: SessionConflict[] }> {
   const { sessionDate, startTime, endTime, artistId, engineerId, excludeSessionId } = params;
 
   if (!sessionDate || !startTime || !endTime) {
     return { hasConflict: false, conflicts: [] };
   }
 
+  const cleanStart = startTime.substring(0, 5);
+  const cleanEnd = endTime.substring(0, 5);
+  if (cleanStart === cleanEnd) {
+    return { hasConflict: false, conflicts: [] };
+  }
+
   const supabase = await createClient();
 
-  // Calculate previous date and next date to handle overnight sessions across midnight
-  const targetDate = new Date(`${sessionDate}T00:00:00`);
-  const prevDateObj = new Date(targetDate);
-  prevDateObj.setDate(prevDateObj.getDate() - 1);
-  const prevDate = prevDateObj.toISOString().split("T")[0];
-
-  const nextDateObj = new Date(targetDate);
-  nextDateObj.setDate(nextDateObj.getDate() + 1);
-  const nextDate = nextDateObj.toISOString().split("T")[0];
-
+  // Calculate previous date and next date cleanly without timezone distortion
+  const prevDate = shiftDateString(sessionDate, -1);
+  const nextDate = shiftDateString(sessionDate, 1);
   const relevantDates = [prevDate, sessionDate, nextDate];
 
   // Query candidate sessions across date boundaries
@@ -69,10 +65,10 @@ export async function checkSessionConflicts(
     return { hasConflict: false, conflicts: [] };
   }
 
-  // Calculate requested session timestamps (supports overnight)
-  const reqStart = new Date(`${sessionDate}T${startTime.substring(0, 5)}:00`).getTime();
-  let reqEnd = new Date(`${sessionDate}T${endTime.substring(0, 5)}:00`).getTime();
-  if (reqEnd <= reqStart) {
+  // Calculate requested session timestamps (supports overnight crossing midnight)
+  const reqStart = new Date(`${sessionDate}T${cleanStart}:00Z`).getTime();
+  let reqEnd = new Date(`${sessionDate}T${cleanEnd}:00Z`).getTime();
+  if (reqEnd < reqStart) {
     reqEnd += 24 * 60 * 60 * 1000; // Crosses midnight into next day
   }
 

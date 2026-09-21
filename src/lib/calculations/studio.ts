@@ -48,7 +48,7 @@ export async function getStudioKPIs(dateRange?: DateRange): Promise<StudioKPIs> 
   }
 
   let query = supabase.from("sessions").select(
-    "session_type, duration_minutes, artist:artists!artist_id(stage_name)"
+    "artist_id, session_type, duration_minutes, artist:artists!artist_id(id, stage_name)"
   ).not("status", "eq", "Cancelled").limit(500);
 
   if (dateRange) {
@@ -83,15 +83,18 @@ export async function getStudioKPIs(dateRange?: DateRange): Promise<StudioKPIs> 
     0
   );
 
-  // Sessions by artist
-  const artistCounts: Record<string, number> = {};
+  // Sessions aggregated by artist ID (prevents collisions between artists with identical names)
+  const artistMap: Record<string, { artist_name: string; count: number }> = {};
   sessions.forEach((s: any) => {
-    const name = s.artist?.stage_name || "Unknown";
-    artistCounts[name] = (artistCounts[name] || 0) + 1;
+    const aId = s.artist_id || s.artist?.id || "unknown";
+    const name = s.artist?.stage_name || "Unknown Artist";
+    if (!artistMap[aId]) {
+      artistMap[aId] = { artist_name: name, count: 0 };
+    }
+    artistMap[aId].count += 1;
   });
 
-  const sessionsByArtist = Object.entries(artistCounts)
-    .map(([artist_name, count]) => ({ artist_name, count }))
+  const sessionsByArtist = Object.values(artistMap)
     .sort((a, b) => b.count - a.count);
 
     return {

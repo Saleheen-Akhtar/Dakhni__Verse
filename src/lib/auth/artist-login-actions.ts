@@ -2,8 +2,9 @@
 
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { requireRole, getCurrentUserProfile } from '@/lib/auth/helpers';
-import { revalidatePath } from 'next/cache';
+import { requireManagerAction, getCurrentUserProfile } from '@/lib/auth/helpers';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { z } from 'zod';
 
 export interface LinkedArtistUser {
   id: string;
@@ -13,6 +14,8 @@ export interface LinkedArtistUser {
   artist_id: string | null;
   created_at?: string;
 }
+
+const roleSchema = z.enum(['Artist', 'Producer']);
 
 /**
  * Check if an artist already has a linked login account in public.users.
@@ -45,7 +48,7 @@ export async function getLinkedUserForArtist(artistId: string): Promise<LinkedAr
 
 /**
  * Generate portal login credentials for an artist.
- * Only managers can execute this action.
+ * Strictly manager-only; executes with cryptographic session verification and service_role.
  */
 export async function generateArtistLogin({
   artistId,
@@ -58,9 +61,10 @@ export async function generateArtistLogin({
   password: string;
   role?: 'Artist' | 'Producer';
 }) {
-  // 1. Verify caller has Manager role
-  const managerProfile = await requireRole(['Manager']);
+  // 1. Cryptographically verify caller is an authenticated Manager
+  const { profile: managerProfile, supabase: managerClient } = await requireManagerAction();
 
+  const validatedRole = roleSchema.parse(role || 'Artist');
   const trimmedEmail = (email || '').trim().toLowerCase();
   const trimmedPassword = (password || '').trim();
 
@@ -72,9 +76,7 @@ export async function generateArtistLogin({
     throw new Error('Password must be at least 8 characters.');
   }
 
-  const managerClient = await createServerClient();
-
-  // Check if an existing account is already registered with this email
+  // 2. Check if an existing account is already registered with this email
   const { data: existingUser } = await managerClient
     .from('users')
     .select('id, email, role, artist_id')
@@ -90,7 +92,7 @@ export async function generateArtistLogin({
     }
   }
 
-  // 2. Fetch the artist details
+  // 3. Fetch the artist details
   const { data: artist, error: artistErr } = await managerClient
     .from('artists')
     .select('id, stage_name, email')
@@ -101,91 +103,76 @@ export async function generateArtistLogin({
     throw new Error('Artist not found in database.');
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !serviceKey) {
+    throw new Error('Administrative service key is not configured on the server. Please contact an administrator.');
+  }
+
+  const adminClient = createSupabaseClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   let userId: string | null = null;
 
-  // 3. Create Auth user
-  // Preference A: Admin Client with service_role key (bypasses email confirmation & rate limits)
-  if (serviceKey) {
-    const adminClient = createSupabaseClient(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+  // 4. Create or update Auth user via Admin API
+  const { data: adminData, error: adminError } = await adminClient.auth.admin.createUser({
+    email: trimmedEmail,
+    password: trimmedPassword,
+    email_confirm: true,
+    user_metadata: { name: artist.stage_name, role: validatedRole },
+  });
 
-    const { data: adminData, error: adminError } = await adminClient.auth.admin.createUser({
-      email: trimmedEmail,
-      password: trimmedPassword,
-      email_confirm: true,
-      user_metadata: { name: artist.stage_name, role },
-    });
+  if (adminError) {
+    if (adminError.message.toLowerCase().includes('already registered') || adminError.status === 422) {
+      // User exists in auth. Find their ID
+      if (existingUser?.id) {
+        userId = existingUser.id;
+      } else {
+        // Fallback search across pages if user is not in public.users yet
+        let page = 1;
+        while (!userId && page <= 5) {
+          const { data: listData } = await adminClient.auth.admin.listUsers({ page, perPage: 100 });
+          const matched = listData?.users?.find((u) => u.email?.toLowerCase() === trimmedEmail);
+          if (matched) {
+            userId = matched.id;
+            break;
+          }
+          if (!listData?.users || listData.users.length < 100) break;
+          page++;
+        }
+      }
 
-    if (adminError) {
-      if (adminError.message.toLowerCase().includes('already registered')) {
-        // Find existing auth user by email
-        const { data: listData } = await adminClient.auth.admin.listUsers();
-        const existing = listData?.users?.find((u) => u.email?.toLowerCase() === trimmedEmail);
-        if (existing) {
-          userId = existing.id;
-          // Update their password
-          await adminClient.auth.admin.updateUserById(existing.id, { password: trimmedPassword });
-        } else {
-          throw adminError;
+      if (userId) {
+        const { error: updateErr } = await adminClient.auth.admin.updateUserById(userId, {
+          password: trimmedPassword,
+          email_confirm: true,
+          user_metadata: { name: artist.stage_name, role: validatedRole },
+        });
+        if (updateErr) {
+          throw new Error(`Failed to update existing auth credentials: ${updateErr.message}`);
         }
       } else {
-        throw new Error(`Auth creation error: ${adminError.message}`);
+        throw new Error('Account already registered in Supabase Auth, but user record could not be located.');
       }
     } else {
-      userId = adminData.user?.id || null;
+      throw new Error(`Auth creation error: ${adminError.message}`);
     }
   } else {
-    // Preference B: Isolated client with anon key (does not affect current manager session)
-    const isolatedClient = createSupabaseClient(url, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    const { data: authData, error: authError } = await isolatedClient.auth.signUp({
-      email: trimmedEmail,
-      password: trimmedPassword,
-    });
-
-    if (authError) {
-      if (authError.message.toLowerCase().includes('already registered')) {
-        // Attempt sign-in with provided password to verify identity
-        const { data: signInData, error: signInError } = await isolatedClient.auth.signInWithPassword({
-          email: trimmedEmail,
-          password: trimmedPassword,
-        });
-
-        if (signInError) {
-          throw new Error(
-            'Unable to configure credentials with the provided email and password. Please verify the credentials or use a distinct email address.'
-          );
-        }
-        userId = signInData.user?.id || null;
-      } else if (authError.message.toLowerCase().includes('rate limit')) {
-        throw new Error(
-          `Supabase email rate limit exceeded. To create unlimited instant artist accounts without rate limits, add your SUPABASE_SERVICE_ROLE_KEY to .env.local and Vercel environment variables.`
-        );
-      } else {
-        throw new Error(authError.message);
-      }
-    } else {
-      userId = authData.user?.id || null;
-    }
+    userId = adminData.user?.id || null;
   }
 
   if (!userId) {
     throw new Error('Failed to generate user identifier.');
   }
 
-  // 4. Link in public.users table with artist_id and role
+  // 5. Link in public.users table with artist_id and role
   const { error: userError } = await managerClient.from('users').upsert({
     id: userId,
     name: artist.stage_name,
     email: trimmedEmail,
-    role: role || 'Artist',
+    role: validatedRole,
     artist_id: artistId,
     updated_at: new Date().toISOString(),
   });
@@ -195,17 +182,17 @@ export async function generateArtistLogin({
     throw new Error(`Could not link artist profile to user record: ${userError.message}`);
   }
 
-  // 5. Update artist record with the verified email and Active status
+  // 6. Update artist record with the verified email and Active status
   await managerClient
     .from('artists')
     .update({
       email: trimmedEmail,
       status: 'Active',
-      dakhni_verse_role: role || 'Artist',
+      dakhni_verse_role: validatedRole,
     })
     .eq('id', artistId);
 
-  // 6. Log manager action in activity logs with verified actor attribution
+  // 7. Log manager action in activity logs with verified actor attribution
   try {
     await managerClient.from('activity_logs').insert([{
       user_id: managerProfile.id,
@@ -216,15 +203,18 @@ export async function generateArtistLogin({
     }]);
   } catch {}
 
+  // 8. Revalidate paths and cache tags
   revalidatePath(`/artists/${artistId}`);
   revalidatePath('/artists');
   revalidatePath('/artists/review');
+  revalidateTag(`user-profile-${userId}`);
+  revalidateTag('user-profiles');
 
   return {
     success: true,
     email: trimmedEmail,
     password: trimmedPassword,
     stage_name: artist.stage_name,
-    role,
+    role: validatedRole,
   };
 }

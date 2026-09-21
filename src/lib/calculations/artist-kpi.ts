@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getTodayIST } from "@/lib/utils/dates";
 
 /**
  * Per-artist KPI calculations.
@@ -20,7 +21,7 @@ export interface ArtistKPIs {
 
 export async function getArtistKPIs(artistId: string): Promise<ArtistKPIs> {
   const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayIST();
 
   // Execute consolidated KPI queries concurrently
   const [

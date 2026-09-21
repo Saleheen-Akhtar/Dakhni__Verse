@@ -11,9 +11,19 @@ export function PwaRegister() {
       return;
     }
 
-    // 1. When a new service worker takes over, smoothly refresh to show new code
+    // Only reload on controllerchange if the page was ALREADY controlled by an older worker.
+    // If hadController is false, this is a first-time install, so reloading would disrupt forms (e.g. /join).
+    const hadController = Boolean(navigator.serviceWorker.controller);
+
     const handleControllerChange = () => {
-      if (refreshingRef.current) return;
+      if (refreshingRef.current || !hadController) return;
+
+      // Don't auto-reload if the user is currently on an active submission form
+      const pathname = window.location.pathname;
+      if (pathname.startsWith('/join') || pathname.startsWith('/artist-form')) {
+        return;
+      }
+
       refreshingRef.current = true;
       toast({
         title: 'App Updated',
@@ -28,18 +38,29 @@ export function PwaRegister() {
 
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
-    // 2. Register service worker with native W3C updateViaCache: 'none'
-    // This tells the browser's native C++ engine to check for updates natively
-    // without running any JavaScript polling loops or background timers.
+    let activeRegistration: ServiceWorkerRegistration | null = null;
+    let lastCheck = Date.now();
+
+    const handleVisibilityChange = () => {
+      const now = Date.now();
+      if (document.visibilityState === 'visible' && activeRegistration && now - lastCheck > 30 * 60 * 1000) {
+        lastCheck = now;
+        activeRegistration.update().catch(() => {});
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Register service worker with native W3C updateViaCache: 'none'
     navigator.serviceWorker
       .register('/sw.js', { scope: '/', updateViaCache: 'none' })
       .then((registration) => {
-        // If there's already an updated worker waiting, activate it immediately
+        activeRegistration = registration;
+
         if (registration.waiting) {
           registration.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
 
-        // When a new worker is installed in background, tell it to take over
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
           if (!newWorker) return;
@@ -50,23 +71,6 @@ export function PwaRegister() {
             }
           });
         });
-
-        // 3. Passive resume check: ONLY when the user returns to the app after being away
-        // Debounced to at least 30 minutes so it never runs during active app usage
-        let lastCheck = Date.now();
-        const handleVisibilityChange = () => {
-          const now = Date.now();
-          if (document.visibilityState === 'visible' && now - lastCheck > 30 * 60 * 1000) {
-            lastCheck = now;
-            registration.update().catch(() => {});
-          }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
       })
       .catch((err) => {
         console.warn('PWA registration:', err);
@@ -74,6 +78,7 @@ export function PwaRegister() {
 
     return () => {
       navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
