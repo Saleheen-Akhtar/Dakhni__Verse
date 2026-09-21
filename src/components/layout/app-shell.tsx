@@ -108,7 +108,7 @@ export function AppShell({ user, children }: AppShellProps) {
             width={32}
             height={32}
             priority
-            className="w-8 h-8 rounded-lg object-contain bg-[#1a1a1a] border border-neutral-800 shadow-sm"
+            className="w-8 h-8 rounded-lg object-contain bg-black border border-neutral-800 shadow-sm"
           />
           <span className="font-display font-bold text-lg tracking-wider">DAKHNI VERSE</span>
         </div>
@@ -138,7 +138,7 @@ export function AppShell({ user, children }: AppShellProps) {
             width={36}
             height={36}
             priority
-            className="w-9 h-9 rounded-lg object-contain bg-[#1a1a1a] border border-neutral-800 shadow-sm"
+            className="w-9 h-9 rounded-lg object-contain bg-black border border-neutral-800 shadow-sm"
           />
           <div className="flex flex-col">
             <span className="font-display font-bold text-base tracking-wider leading-tight">DAKHNI VERSE</span>

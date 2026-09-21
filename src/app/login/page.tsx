@@ -27,14 +27,16 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F4F4F4] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex flex-col items-center mb-4">
-          <Image
-            src="/logo.png"
-            alt="Dakhni Verse"
-            width={128}
-            height={128}
-            priority
-            className="h-32 w-auto object-contain mb-3 drop-shadow-md"
-          />
+          <div className="w-28 h-28 rounded-2xl overflow-hidden shadow-xl bg-black border border-neutral-800 mb-3 flex items-center justify-center p-1">
+            <Image
+              src="/logo.png"
+              alt="Dakhni Verse"
+              width={112}
+              height={112}
+              priority
+              className="w-full h-full object-contain"
+            />
+          </div>
           <h2 className="text-center text-3xl font-bold font-display tracking-wider text-[#111111]">
             DAKHNI VERSE
           </h2>
